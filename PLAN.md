@@ -1,7 +1,10 @@
 # Implementation Plan: AFMBridge - Apple Foundation Models Bridge
 
 ## Overview
-Create a standalone open-source Swift/Vapor REST API server that wraps Apple's FoundationModels framework (macOS 26.0+) with OpenAI-compatible and Anthropic-compatible APIs, supporting multiple streaming modes.
+
+Create a standalone open-source Swift/Vapor REST API server that wraps
+Apple's FoundationModels framework (macOS 26.0+) with OpenAI-compatible
+and Anthropic-compatible APIs, supporting multiple streaming modes.
 
 **Project Name:** `afmbridge` (Apple Foundation Models Bridge)
 
@@ -17,7 +20,7 @@ Create a standalone open-source Swift/Vapor REST API server that wraps Apple's F
 
 Create new standalone project: `afmbridge/`
 
-```
+```text
 afmbridge/
 ├── PLAN.md                              # This implementation plan
 ├── AGENTS.md                            # Agent/AI collaboration standards
@@ -68,11 +71,12 @@ afmbridge/
 ├── Tests/
 │   └── AppTests/
 └── README.md
-```
+```text
 
 ## Development Workflow & Best Practices
 
 ### Jujutsu (jj) VCS Workflow
+
 Using jujutsu instead of git for version control:
 
 ```bash
@@ -95,14 +99,17 @@ jj rebase -d main
 
 # Push PR stack to GitHub
 jj git push --all
-```
+```text
 
 ### Conventional Commits
-All commits must follow [Conventional Commits](https://www.conventionalcommits.org/):
+
+All commits must follow
+[Conventional Commits](https://www.conventionalcommits.org/):
 
 **Format:** `<type>(<scope>): <subject>` (max 70 chars)
 
 **Types:**
+
 - `feat`: New feature
 - `fix`: Bug fix
 - `docs`: Documentation only
@@ -113,15 +120,18 @@ All commits must follow [Conventional Commits](https://www.conventionalcommits.o
 - `build`: Nix/build changes
 
 **Examples:**
-```
+
+```text
 feat(server): add OpenAI chat completions endpoint
 build(nix): configure Swift package in flake
 chore(just): add format and lint tasks
 docs(agents): add AI collaboration standards
-```
+```text
 
 ### Atomic Commits
+
 Each commit should be:
+
 - **Self-contained:** Passes `just validate`
 - **Single-purpose:** One logical change
 - **Reviewable:** Easy to understand
@@ -130,7 +140,9 @@ Each commit should be:
 ### Code Quality Standards
 
 #### SwiftLint
+
 Rules to enforce:
+
 - Line length: 120 characters
 - Function length: 40 lines
 - Type body length: 300 lines
@@ -139,18 +151,21 @@ Rules to enforce:
 - Trailing whitespace: Error
 
 #### swift-format
+
 - Indentation: 4 spaces
 - Line wrapping: 100 characters
 - Consistent spacing around operators
 - Organized imports
 
 #### Testing Requirements
+
 - Unit tests for all services
 - Integration tests for controllers
 - Code coverage target: 80%
 - Tests must pass before commit
 
 #### Just Tasks
+
 Justfile provides all development tasks:
 
 ```bash
@@ -162,9 +177,10 @@ just validate        # Run format + lint + test + build
 just docker-build    # Build Docker image
 just docker-run      # Run Docker container
 just clean           # Clean build artifacts
-```
+```text
 
 ### Development Workflow with jj
+
 1. Make changes in working directory
 2. Run `just validate` to verify quality
 3. Describe changes: `jj describe -m "type(scope): description"`
@@ -182,11 +198,13 @@ just clean           # Clean build artifacts
 #### 0.1 Repository and Plan
 
 **Commit 1:** `docs(plan): add implementation plan`
+
 - Initialize jujutsu repository: `jj init --git afmbridge`
 - Create `PLAN.md` (this document)
 - Test: `jj status` shows clean state
 
 **Commit 2:** `docs(agents): add AI collaboration standards`
+
 - Create `AGENTS.md` with:
   - Commit standards (conventional commits, atomic commits)
   - Code quality requirements (lint, format, test)
@@ -199,6 +217,7 @@ just clean           # Clean build artifacts
 #### 0.2 Nix Build System
 
 **Commit 3:** `build(nix): add Nix flake for reproducible builds`
+
 - Create `flake.nix`:
   - Swift 6.0+ toolchain
   - Vapor dependencies
@@ -208,6 +227,7 @@ just clean           # Clean build artifacts
 - Test: `nix flake check` passes
 
 **Commit 4:** `build(direnv): add direnv configuration`
+
 - Create `.envrc` with `use flake`
 - Enable automatic environment loading
 - Test: `direnv allow` works
@@ -215,6 +235,7 @@ just clean           # Clean build artifacts
 #### 0.3 Task Runner
 
 **Commit 5:** `chore(just): add Justfile with development tasks`
+
 - Create `Justfile` with recipes:
   - `format`: Run swift-format and markdownlint --fix
   - `lint`: Run swiftlint and markdownlint
@@ -227,6 +248,7 @@ just clean           # Clean build artifacts
 - Test: `just --list` shows all tasks
 
 **Commit 6:** `build(docker): add multi-stage Dockerfile`
+
 - Create `Dockerfile`:
   - Stage 1: Build binary with Nix
   - Stage 2: Runtime image with minimal dependencies
@@ -238,6 +260,7 @@ just clean           # Clean build artifacts
 #### 0.4 Code Quality
 
 **Commit 7:** `chore(swift): add SwiftLint configuration`
+
 - Create `.swiftlint.yml` with rules:
   - Line length: 120
   - Function length: 40
@@ -248,6 +271,7 @@ just clean           # Clean build artifacts
 - Test: `swiftlint` runs (no files yet)
 
 **Commit 8:** `chore(swift): add swift-format configuration`
+
 - Create `.swift-format`:
   - Indentation: 4 spaces
   - Line length: 100
@@ -255,6 +279,7 @@ just clean           # Clean build artifacts
 - Test: `swift-format --version` works
 
 **Commit 9:** `chore(docs): add markdownlint configuration`
+
 - Create `.markdownlint.json`:
   - Line length: 120
   - Consistent list styles
@@ -264,6 +289,7 @@ just clean           # Clean build artifacts
 #### 0.5 Swift Package
 
 **Commit 10:** `build(swift): initialize Swift package with Vapor`
+
 - Create `Package.swift`:
   - Platform: macOS 26.0+
   - Dependencies: Vapor 4.x
@@ -276,6 +302,7 @@ just clean           # Clean build artifacts
 #### 0.6 CI/CD
 
 **Commit 11:** `ci(github): add GitHub Actions workflow`
+
 - Create `.github/workflows/ci.yml`:
   - Setup Nix with cachix
   - Run `just validate` (format + lint + test + build)
@@ -285,6 +312,7 @@ just clean           # Clean build artifacts
 - Test: Workflow syntax is valid
 
 **Commit 12:** `ci(github): add release workflow`
+
 - Create `.github/workflows/release.yml`:
   - Trigger on tags (v*.*.*)
   - Build binary for macOS
@@ -293,6 +321,7 @@ just clean           # Clean build artifacts
 - Test: Workflow syntax is valid
 
 **Commit 13:** `ci(github): add PR stack validation`
+
 - Create `.github/workflows/pr-stack.yml`:
   - Validate all commits in stack
   - Check conventional commit format
@@ -303,10 +332,12 @@ just clean           # Clean build artifacts
 #### 0.7 Documentation
 
 **Commit 14:** `docs(license): add MIT license`
+
 - Create `LICENSE` file
 - Test: License is valid MIT format
 
 **Commit 15:** `docs(readme): add initial README`
+
 - Create `README.md` with:
   - Project description
   - Features (coming soon)
@@ -317,6 +348,7 @@ just clean           # Clean build artifacts
 - Test: `markdownlint README.md` passes
 
 **Phase 0 Deliverable:** Complete project infrastructure
+
 - Total commits: 15
 - Nix build system ready
 - Development environment configured
@@ -336,6 +368,7 @@ just clean           # Clean build artifacts
 #### 1.1 Error Types & Models
 
 **Commit 16:** `feat(errors): add LLMError enum with error cases`
+
 - Create `Sources/Models/LLMError.swift`
 - Define error cases: modelNotAvailable, frameworkNotAvailable, invalidMessageFormat, contentFiltered
 - Implement `LocalizedError` protocol
@@ -344,6 +377,7 @@ just clean           # Clean build artifacts
 #### 1.2 OpenAI DTOs
 
 **Commit 17:** `feat(dto): add OpenAI ChatCompletionRequest model`
+
 - Create `Sources/DTOs/OpenAI/ChatCompletionRequest.swift`
 - Define: `model`, `messages`, `stream`, `max_tokens`, `temperature`
 - Define nested `ChatMessage` struct
@@ -351,6 +385,7 @@ just clean           # Clean build artifacts
 - Test: Model decodes from JSON correctly
 
 **Commit 7:** `feat(dto): add OpenAI ChatCompletionResponse model`
+
 - Create `Sources/DTOs/OpenAI/ChatCompletionResponse.swift`
 - Define: `id`, `object`, `created`, `model`, `choices`
 - Define nested `Choice` and `ChatMessage` structs
@@ -358,6 +393,7 @@ just clean           # Clean build artifacts
 - Test: Model encodes to JSON correctly
 
 **Commit 8:** `test(dto): add unit tests for OpenAI DTOs`
+
 - Create `Tests/AppTests/DTOs/OpenAITests.swift`
 - Test request decoding from JSON
 - Test response encoding to JSON
@@ -366,6 +402,7 @@ just clean           # Clean build artifacts
 #### 1.3 Message Translation Service
 
 **Commit 9:** `feat(service): add MessageTranslationService`
+
 - Create `Sources/Services/MessageTranslationService.swift`
 - Implement `translateToFoundationModels(messages:)` method
 - Extract system messages → system prompt
@@ -373,6 +410,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 10:** `test(service): add MessageTranslationService tests`
+
 - Create `Tests/AppTests/Services/MessageTranslationServiceTests.swift`
 - Test system message extraction
 - Test conversation formatting
@@ -382,6 +420,7 @@ just clean           # Clean build artifacts
 #### 1.4 FoundationModelService
 
 **Commit 11:** `feat(service): add FoundationModelService wrapper`
+
 - Create `Sources/Services/FoundationModelService.swift`
 - Implement `actor FoundationModelService`
 - Implement `respond(to:)` method using `LanguageModelSession`
@@ -391,6 +430,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully (runtime test requires macOS 26.0+)
 
 **Commit 12:** `test(service): add FoundationModelService tests`
+
 - Create `Tests/AppTests/Services/FoundationModelServiceTests.swift`
 - Add mock protocol `LLMProvider` for testability
 - Test error cases (model not available)
@@ -399,6 +439,7 @@ just clean           # Clean build artifacts
 #### 1.5 OpenAI Controller
 
 **Commit 13:** `feat(controller): add OpenAIController with non-streaming`
+
 - Create `Sources/Controllers/OpenAIController.swift`
 - Implement `chatCompletions(req:)` method
 - Handle non-streaming requests only (stream == false or nil)
@@ -407,6 +448,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 14:** `test(controller): add OpenAIController tests`
+
 - Create `Tests/AppTests/Controllers/OpenAIControllerTests.swift`
 - Test request handling
 - Test response format
@@ -416,18 +458,21 @@ just clean           # Clean build artifacts
 #### 1.6 Vapor Application Setup
 
 **Commit 15:** `feat(app): add Vapor main entry point`
+
 - Create `Sources/App/main.swift`
 - Implement `@main` entrypoint
 - Set up Application lifecycle
 - Test: `swift run` starts without errors
 
 **Commit 16:** `feat(app): add configure function`
+
 - Create `Sources/App/configure.swift`
 - Set up middleware
 - Configure logging
 - Test: App configures successfully
 
 **Commit 17:** `feat(routes): add OpenAI routes`
+
 - Create `Sources/App/routes.swift`
 - Add `/v1/chat/completions` POST endpoint
 - Add `/health` GET endpoint
@@ -437,6 +482,7 @@ just clean           # Clean build artifacts
 #### 1.7 Configuration
 
 **Commit 18:** `feat(config): add ServerConfig with environment vars`
+
 - Create `Sources/Configuration/ServerConfig.swift`
 - Load from environment: HOST, PORT, MAX_TOKENS
 - Provide sensible defaults
@@ -445,12 +491,14 @@ just clean           # Clean build artifacts
 #### 1.8 Integration Testing
 
 **Commit 19:** `test(integration): add end-to-end OpenAI API test`
+
 - Create `Tests/AppTests/Integration/E2ETests.swift`
 - Test full request/response flow
 - Use TestApplication
 - Test: E2E test passes
 
 **Commit 20:** `docs(readme): add usage examples and API documentation`
+
 - Update `README.md` with:
   - Installation instructions
   - Running the server
@@ -459,6 +507,7 @@ just clean           # Clean build artifacts
 - Test: Documentation is clear and accurate
 
 **Phase 1 Deliverable:** Working OpenAI-compatible API with non-streaming responses
+
 - Total commits in phase: 20 (commits 16-35)
 - All tests passing (`just validate`)
 - Fully documented
@@ -477,6 +526,7 @@ just clean           # Clean build artifacts
 #### 2.1 Chunk DTO
 
 **Commit 21:** `feat(dto): add ChatCompletionChunk model for streaming`
+
 - Create `Sources/DTOs/OpenAI/ChatCompletionChunk.swift`
 - Define: `id`, `object`, `created`, `model`, `choices`
 - Define nested `ChunkChoice` with `delta` and `finish_reason`
@@ -485,6 +535,7 @@ just clean           # Clean build artifacts
 - Test: Model encodes to JSON correctly
 
 **Commit 22:** `test(dto): add ChatCompletionChunk tests`
+
 - Create tests in `Tests/AppTests/DTOs/OpenAITests.swift`
 - Test chunk encoding
 - Test delta format
@@ -493,6 +544,7 @@ just clean           # Clean build artifacts
 #### 2.2 Streaming Service
 
 **Commit 23:** `feat(service): add StreamingService for chunk simulation`
+
 - Create `Sources/Services/StreamingService.swift`
 - Implement `simulateChunks(_ fullResponse:, id:)` method
 - Split response into word-level chunks
@@ -502,6 +554,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 24:** `test(service): add StreamingService tests`
+
 - Create `Tests/AppTests/Services/StreamingServiceTests.swift`
 - Test chunk generation from full response
 - Test chunk ordering (role → content → finish)
@@ -510,6 +563,7 @@ just clean           # Clean build artifacts
 #### 2.3 SSE Response Handler
 
 **Commit 25:** `feat(controller): add SSE streaming to OpenAIController`
+
 - Update `Sources/Controllers/OpenAIController.swift`
 - Implement `streamChatCompletion(req:request:)` method
 - Set SSE headers (`text/event-stream`, `no-cache`)
@@ -520,6 +574,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 26:** `feat(config): add STREAMING_DELAY_MS to ServerConfig`
+
 - Update `Sources/Configuration/ServerConfig.swift`
 - Add `streamingDelayMs` property (default: 20)
 - Load from `STREAMING_DELAY_MS` environment variable
@@ -528,6 +583,7 @@ just clean           # Clean build artifacts
 #### 2.4 Testing
 
 **Commit 27:** `test(integration): add streaming E2E test`
+
 - Update `Tests/AppTests/Integration/E2ETests.swift`
 - Test SSE streaming response format
 - Test chunk ordering
@@ -535,6 +591,7 @@ just clean           # Clean build artifacts
 - Test: Streaming E2E test passes
 
 **Commit 28:** `docs(readme): add streaming examples and documentation`
+
 - Update `README.md` with:
   - Streaming API examples
   - SSE format explanation
@@ -542,6 +599,7 @@ just clean           # Clean build artifacts
 - Test: Documentation is accurate
 
 **Phase 2 Deliverable:** OpenAI endpoint with both streaming and non-streaming modes
+
 - Total commits in phase: 8 (commits 36-43)
 - All tests passing (`just validate`)
 - Streaming fully functional
@@ -559,6 +617,7 @@ just clean           # Clean build artifacts
 #### 3.1 Anthropic DTOs
 
 **Commit 29:** `feat(dto): add Anthropic MessageRequest model`
+
 - Create `Sources/DTOs/Anthropic/MessageRequest.swift`
 - Define: `model`, `messages`, `max_tokens` (required), `stream`, `system`, `temperature`
 - Define nested `Message` struct (role, content)
@@ -566,6 +625,7 @@ just clean           # Clean build artifacts
 - Test: Model decodes from JSON correctly
 
 **Commit 30:** `feat(dto): add Anthropic MessageResponse model`
+
 - Create `Sources/DTOs/Anthropic/MessageResponse.swift`
 - Define: `id`, `type`, `role`, `content`, `model`, `stop_reason`
 - Define `ContentBlock` struct with type and text
@@ -573,6 +633,7 @@ just clean           # Clean build artifacts
 - Test: Model encodes to JSON correctly
 
 **Commit 31:** `feat(dto): add Anthropic StreamEvent models`
+
 - Create `Sources/DTOs/Anthropic/StreamEvent.swift`
 - Define `StreamEventType` enum
 - Define event structures for each type (message_start, content_block_delta, etc.)
@@ -580,6 +641,7 @@ just clean           # Clean build artifacts
 - Test: Models encode correctly
 
 **Commit 32:** `test(dto): add unit tests for Anthropic DTOs`
+
 - Create `Tests/AppTests/DTOs/AnthropicTests.swift`
 - Test request decoding
 - Test response encoding
@@ -589,6 +651,7 @@ just clean           # Clean build artifacts
 #### 3.2 Message Translation (Anthropic)
 
 **Commit 33:** `feat(service): add Anthropic message translation`
+
 - Update `Sources/Services/MessageTranslationService.swift`
 - Add `translateAnthropicToFoundationModels(messages:system:)` method
 - Handle separate system parameter
@@ -596,6 +659,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 34:** `test(service): add Anthropic translation tests`
+
 - Update `Tests/AppTests/Services/MessageTranslationServiceTests.swift`
 - Test Anthropic format conversion
 - Test system prompt handling
@@ -604,6 +668,7 @@ just clean           # Clean build artifacts
 #### 3.3 FoundationModelService (Anthropic)
 
 **Commit 35:** `feat(service): add Anthropic support to FoundationModelService`
+
 - Update `Sources/Services/Services/FoundationModelService.swift`
 - Add `respond(to: MessageRequest)` method
 - Use translation service for format conversion
@@ -612,6 +677,7 @@ just clean           # Clean build artifacts
 #### 3.4 Anthropic Controller
 
 **Commit 36:** `feat(controller): add AnthropicController with non-streaming`
+
 - Create `Sources/Controllers/AnthropicController.swift`
 - Implement `messages(req:)` method
 - Handle non-streaming requests
@@ -619,6 +685,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 37:** `test(controller): add AnthropicController tests`
+
 - Create `Tests/AppTests/Controllers/AnthropicControllerTests.swift`
 - Test request handling
 - Test response format with content blocks
@@ -628,6 +695,7 @@ just clean           # Clean build artifacts
 #### 3.5 Anthropic Streaming
 
 **Commit 38:** `feat(service): add Anthropic streaming to StreamingService`
+
 - Update `Sources/Services/StreamingService.swift`
 - Add `simulateAnthropicEvents(_ fullResponse:, id:)` method
 - Generate named SSE events (message_start, content_block_delta, etc.)
@@ -635,6 +703,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 39:** `feat(controller): add Anthropic SSE streaming`
+
 - Update `Sources/Controllers/AnthropicController.swift`
 - Implement `streamMessages(req:request:)` method
 - Set SSE headers with named events
@@ -643,6 +712,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 40:** `test(service): add Anthropic streaming tests`
+
 - Update `Tests/AppTests/Services/StreamingServiceTests.swift`
 - Test Anthropic event generation
 - Test event ordering and format
@@ -651,6 +721,7 @@ just clean           # Clean build artifacts
 #### 3.6 Routes
 
 **Commit 41:** `feat(routes): add Anthropic /v1/messages endpoint`
+
 - Update `Sources/App/routes.swift`
 - Add `/v1/messages` POST route
 - Wire up AnthropicController
@@ -659,12 +730,14 @@ just clean           # Clean build artifacts
 #### 3.7 Testing
 
 **Commit 42:** `test(integration): add Anthropic E2E tests`
+
 - Update `Tests/AppTests/Integration/E2ETests.swift`
 - Test Anthropic non-streaming requests
 - Test Anthropic streaming with named events
 - Test: E2E tests pass
 
 **Commit 43:** `docs(readme): add Anthropic API documentation`
+
 - Update `README.md` with:
   - Anthropic API examples
   - Named SSE events explanation
@@ -672,6 +745,7 @@ just clean           # Clean build artifacts
 - Test: Documentation is accurate
 
 **Phase 3 Deliverable:** Full compatibility with both OpenAI and Anthropic APIs
+
 - Total commits in phase: 15 (commits 44-58)
 - All tests passing (`just validate`)
 - Both APIs fully functional
@@ -689,6 +763,7 @@ just clean           # Clean build artifacts
 #### 4.1 Error Response Models
 
 **Commit 44:** `feat(dto): add error response models`
+
 - Create `Sources/DTOs/ErrorResponse.swift`
 - Define OpenAI/Anthropic compatible error format
 - Define `ErrorDetail` with message, type, code
@@ -698,6 +773,7 @@ just clean           # Clean build artifacts
 #### 4.2 Error Middleware
 
 **Commit 45:** `feat(middleware): add ErrorMiddleware for error handling`
+
 - Create `Sources/Middleware/ErrorMiddleware.swift`
 - Map `LLMError` cases to HTTP status codes
 - Format errors in API-compatible structure
@@ -705,12 +781,14 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 46:** `test(middleware): add ErrorMiddleware tests`
+
 - Create `Tests/AppTests/Middleware/ErrorMiddlewareTests.swift`
 - Test each error type mapping
 - Test response format
 - Test: All error handling tests pass
 
 **Commit 47:** `feat(app): register ErrorMiddleware in configure`
+
 - Update `Sources/App/configure.swift`
 - Add ErrorMiddleware to middleware stack
 - Test: Error handling works E2E
@@ -718,6 +796,7 @@ just clean           # Clean build artifacts
 #### 4.3 Authentication Middleware
 
 **Commit 48:** `feat(middleware): add optional API key authentication`
+
 - Create `Sources/Middleware/AuthenticationMiddleware.swift`
 - Check Authorization header for Bearer token
 - Return 401 if auth enabled and invalid/missing
@@ -725,6 +804,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 49:** `test(middleware): add AuthenticationMiddleware tests`
+
 - Create `Tests/AppTests/Middleware/AuthenticationMiddlewareTests.swift`
 - Test valid API key
 - Test invalid API key
@@ -733,12 +813,14 @@ just clean           # Clean build artifacts
 - Test: All auth tests pass
 
 **Commit 50:** `feat(config): add API_KEY to ServerConfig`
+
 - Update `Sources/Configuration/ServerConfig.swift`
 - Add `apiKey` optional property
 - Load from `API_KEY` environment variable
 - Test: Config loads correctly
 
 **Commit 51:** `feat(app): conditionally enable authentication`
+
 - Update `Sources/App/configure.swift`
 - Add AuthenticationMiddleware if API_KEY is set
 - Test: Auth works when enabled
@@ -746,6 +828,7 @@ just clean           # Clean build artifacts
 #### 4.4 Request/Response Logging
 
 **Commit 52:** `feat(middleware): add request logging middleware`
+
 - Create `Sources/Middleware/LoggingMiddleware.swift`
 - Log request: method, path, headers
 - Log response: status, duration
@@ -753,6 +836,7 @@ just clean           # Clean build artifacts
 - Test: Builds successfully
 
 **Commit 53:** `feat(app): register LoggingMiddleware`
+
 - Update `Sources/App/configure.swift`
 - Add LoggingMiddleware to middleware stack
 - Configure log level from environment
@@ -761,18 +845,21 @@ just clean           # Clean build artifacts
 #### 4.5 Code Coverage & Quality
 
 **Commit 54:** `test(coverage): ensure 80% code coverage target`
+
 - Run `swift test --enable-code-coverage`
 - Add missing tests to reach 80% coverage
 - Document coverage in README
 - Test: Coverage >= 80%
 
 **Commit 55:** `chore(lint): run SwiftLint and fix all warnings`
+
 - Run `swiftlint` across codebase
 - Fix all warnings and errors
 - Ensure compliance with .swiftlint.yml
 - Test: `swiftlint` passes with no errors
 
 **Commit 56:** `style(format): run swift-format on all files`
+
 - Run `swift-format` across codebase
 - Fix formatting inconsistencies
 - Test: All files formatted consistently
@@ -780,6 +867,7 @@ just clean           # Clean build artifacts
 #### 4.6 Documentation
 
 **Commit 57:** `docs(readme): add comprehensive README documentation`
+
 - Update `README.md` with complete documentation:
   - Project description and features
   - Requirements (macOS 26.0+, Apple Silicon)
@@ -793,6 +881,7 @@ just clean           # Clean build artifacts
 - Test: Documentation is complete and accurate
 
 **Commit 58:** `docs(api): add API.md with full API specification`
+
 - Create `API.md` with:
   - OpenAI endpoint documentation
   - Anthropic endpoint documentation
@@ -802,6 +891,7 @@ just clean           # Clean build artifacts
 - Test: API docs are accurate
 
 **Commit 59:** `docs(contrib): add CONTRIBUTING.md`
+
 - Create `CONTRIBUTING.md` with:
   - Development setup
   - Code style guidelines
@@ -813,6 +903,7 @@ just clean           # Clean build artifacts
 #### 4.7 CI/CD Finalization
 
 **Commit 60:** `chore(ci): finalize GitHub Actions workflow`
+
 - Update `.github/workflows/ci.yml`
 - Add all quality gates: lint, format-check, test, build
 - Add code coverage reporting
@@ -820,6 +911,7 @@ just clean           # Clean build artifacts
 - Test: CI workflow runs successfully
 
 **Phase 4 Deliverable:** Production-ready server
+
 - Total commits in phase: 17 (commits 59-75)
 - 80%+ code coverage
 - All quality checks passing (`just validate`)
@@ -832,31 +924,36 @@ just clean           # Clean build artifacts
 ## Key Technical Decisions
 
 ### 1. Simulated Streaming
+
 **Trade-off:** FoundationModels doesn't support streaming → simulate by chunking complete response
 **Rationale:** Provides API compatibility while accepting latency trade-off
 **Implementation:** Word-level chunking with configurable delay (20ms default)
 
 ### 2. Stateless Conversations
+
 **Trade-off:** No server-side session management → clients send full history
 **Rationale:** Simplifies server, aligns with LanguageModelSession's one-shot design
 **Future:** Can add optional session management later
 
 ### 3. Parameter Support
+
 **Trade-off:** Accept OpenAI/Anthropic parameters but may not honor all
 **Rationale:** API compatibility vs. Foundation Models limitations
 **Implementation:** Log unsupported parameters, document which are honored
 
 ### 4. Protocol-Based Architecture
+
 **Rationale:** Enables testing without FoundationModels, future backend swapping
 ```swift
 protocol LLMProvider {
     func respond(to request: ChatCompletionRequest) async throws -> String
 }
-```
+```text
 
 ## Testing Strategy
 
 ### Manual Testing
+
 ```bash
 # OpenAI non-streaming
 curl -X POST http://localhost:8080/v1/chat/completions \
@@ -877,9 +974,10 @@ curl -X POST http://localhost:8080/v1/messages \
 curl -N -X POST http://localhost:8080/v1/messages \
   -H "Content-Type: application/json" \
   -d '{"model":"claude-3-5-sonnet","max_tokens":1024,"messages":[{"role":"user","content":"Hello"}],"stream":true}'
-```
+```text
 
 ### Client Library Testing
+
 - Python OpenAI SDK
 - Python Anthropic SDK
 - JavaScript/TypeScript fetch
@@ -887,6 +985,7 @@ curl -N -X POST http://localhost:8080/v1/messages \
 ## Deployment
 
 ### Development with Nix
+
 ```bash
 # Enter development environment
 cd afmbridge
@@ -895,18 +994,20 @@ nix develop  # or use devenv shell
 # Run the server
 just build
 just run
-```
+```text
 
 ### Production Build
+
 ```bash
 # Build with Nix
 nix build
 
 # Run binary
 ./result/bin/AFMBridge
-```
+```text
 
 ### Docker
+
 ```bash
 # Build Docker image
 just docker-build
@@ -916,9 +1017,10 @@ just docker-run
 
 # Or with docker directly
 docker run -p 8080:8080 -e HOST=0.0.0.0 afmbridge
-```
+```text
 
 ### Environment Variables
+
 ```bash
 HOST=0.0.0.0
 PORT=8080
@@ -926,13 +1028,14 @@ API_KEY=sk-secret           # Optional
 MAX_TOKENS=2048
 STREAMING_DELAY_MS=20
 LOG_LEVEL=info
-```
+```text
 
 ## Summary
 
 This plan provides a complete roadmap for building **AFMBridge** (Apple Foundation Models Bridge), an open-source Swift/Vapor REST API server that exposes Apple's FoundationModels framework through industry-standard LLM APIs.
 
 **Key Features:**
+
 - ✅ OpenAI Chat Completions API compatibility
 - ✅ Anthropic Messages API compatibility
 - ✅ Server-Sent Events (SSE) streaming
@@ -948,6 +1051,7 @@ This plan provides a complete roadmap for building **AFMBridge** (Apple Foundati
 - ✅ AGENTS.md for AI collaboration standards
 
 **Total Commits:** 75 atomic commits across 5 phases (0-4)
+
 - Phase 0: Project Foundation (15 commits)
 - Phase 1: MVP OpenAI API (20 commits)
 - Phase 2: Streaming Support (8 commits)

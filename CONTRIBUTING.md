@@ -1,6 +1,7 @@
 # Contributing to AFMBridge
 
-Thank you for your interest in contributing to AFMBridge (Apple Foundation Models Bridge)!
+Thank you for your interest in contributing to AFMBridge
+(Apple Foundation Models Bridge)!
 
 ## Development Setup
 
@@ -49,7 +50,7 @@ The body (optional) can answer "what" and "how" - implementation details.
 
 **Good Examples:**
 
-```
+```text
 feat(api): support streaming for better UX
 
 OpenAI clients expect SSE streaming for real-time responses.
@@ -57,7 +58,7 @@ Implement word-level chunking with configurable delay to simulate
 streaming behavior on top of FoundationModels' synchronous API.
 ```
 
-```
+```text
 fix(auth): prevent bypass of API key validation
 
 Authentication middleware was not checking empty Bearer tokens.
@@ -65,7 +66,7 @@ Add explicit validation for non-empty token strings before
 comparing with configured API key.
 ```
 
-```
+```text
 docs(readme): clarify macOS 26.0+ requirement
 
 Users were confused about minimum macOS version needed.
@@ -73,7 +74,7 @@ Explicitly state that FoundationModels requires macOS 26.0+
 and Apple Intelligence must be enabled.
 ```
 
-```
+```text
 test(dto): ensure OpenAI response format compliance
 
 OpenAI SDK validates response structure strictly.
@@ -81,7 +82,7 @@ Add tests for all required fields, proper nesting, and
 JSON serialization to prevent runtime errors in clients.
 ```
 
-```
+```text
 refactor(service): extract message translation logic
 
 Translation code was duplicated across controllers.
@@ -91,7 +92,7 @@ format conversion, improving maintainability and testability.
 
 **Bad Examples:**
 
-```
+```text
 fix: fix bug               # ❌ Doesn't explain why or what bug
 feat: add code             # ❌ Too vague
 update readme              # ❌ Missing type, doesn't explain why
