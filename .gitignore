@@ -30,3 +30,6 @@ DerivedData/
 
 # Docker
 .dockerignore.bak
+
+# Beads issue tracking
+.beads/
