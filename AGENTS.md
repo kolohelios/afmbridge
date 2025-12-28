@@ -4,6 +4,16 @@ This document defines standards for AI agents (Claude Code, Cursor, GitHub Copil
 etc.) working on the AFMBridge project. Following these guidelines ensures consistent
 code quality and maintainable commits.
 
+## CRITICAL: Version Control
+
+**This project uses Jujutsu (jj), NOT git.**
+
+- ✅ ALWAYS use `jj` commands for version control operations
+- ❌ NEVER use `git` commands directly (git checkout, git commit, git branch, etc.)
+- ℹ️ Jujutsu manages git as a backend, but you interact only through `jj`
+
+If you find yourself about to type a git command, STOP and use the equivalent `jj` command instead.
+
 ## Commit Standards
 
 ### Conventional Commits
@@ -252,7 +262,7 @@ See also:
 
 ## Landing the Plane (Session Completion)
 
-**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `git push` succeeds.
+**When ending a work session**, you MUST complete ALL steps below. Work is NOT complete until `jj git push` succeeds.
 
 **MANDATORY WORKFLOW:**
 
@@ -262,19 +272,20 @@ See also:
 4. **PUSH TO REMOTE** - This is MANDATORY:
 
    ```bash
-   git pull --rebase
-   bd sync
-   git push
-   git status  # MUST show "up to date with origin"
+   jj git fetch  # Update from remote
+   bd sync       # Sync beads issues
+   jj git push --all  # Push all bookmarks to remote
+   jj log -r 'mine()' --limit 5  # Verify pushed changes
    ```
 
-5. **Clean up** - Clear stashes, prune remote branches
+5. **Clean up** - Abandon unused changes, prune remote bookmarks
 6. **Verify** - All changes committed AND pushed
 7. **Hand off** - Provide context for next session
 
 **CRITICAL RULES:**
 
-- Work is NOT complete until `git push` succeeds
+- Work is NOT complete until `jj git push` succeeds
 - NEVER stop before pushing - that leaves work stranded locally
 - NEVER say "ready to push when you are" - YOU must push
 - If push fails, resolve and retry until it succeeds
+- ALWAYS use `jj` commands, NEVER use `git` directly
