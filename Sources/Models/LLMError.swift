@@ -1,7 +1,7 @@
 import Foundation
 
 /// Errors that can occur when interacting with Foundation Models
-enum LLMError: LocalizedError {
+public enum LLMError: LocalizedError {
     /// The requested model is not available on this system
     case modelNotAvailable(String)
 
@@ -14,7 +14,7 @@ enum LLMError: LocalizedError {
     /// Content was filtered by safety systems
     case contentFiltered(String)
 
-    var errorDescription: String? {
+    public var errorDescription: String? {
         switch self {
         case .modelNotAvailable(let model):
             return "Model '\(model)' is not available on this system"
@@ -25,7 +25,7 @@ enum LLMError: LocalizedError {
         }
     }
 
-    var failureReason: String? {
+    public var failureReason: String? {
         switch self {
         case .modelNotAvailable: return "The requested language model is not installed or supported"
         case .frameworkNotAvailable:
@@ -36,7 +36,7 @@ enum LLMError: LocalizedError {
         }
     }
 
-    var recoverySuggestion: String? {
+    public var recoverySuggestion: String? {
         switch self {
         case .modelNotAvailable:
             return "Check that the model is available and try again with a supported model"
