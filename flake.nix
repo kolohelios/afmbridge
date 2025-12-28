@@ -17,12 +17,12 @@
         };
 
         # Development tools
+        # NOTE: Swift toolchain is NOT included from Nix - use system Swift from Xcode
+        # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
+        # NOTE: swift-format and swiftlint are NOT included from Nix
+        # Reason: They pull in apple-sdk-14.4 which conflicts with Swift 6
+        # Install via: brew install swift-format swiftlint
         devTools = with pkgs; [
-          # Swift toolchain
-          swift
-          swift-format
-          swiftlint
-
           # Task runner
           just
 
@@ -46,7 +46,28 @@
           buildInputs = devTools;
 
           shellHook = ''
+            # Override Nix SDK paths to use system Xcode SDK
+            # Even though Swift isn't in devTools, other packages (like git's libcxx)
+            # pull in apple-sdk which sets these variables and conflicts with Swift 6
+            export SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
+            export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+
+            # Unset Nix C/C++ compiler variables to prevent interference with Swift compilation
+            # Swift Package Manager should use system toolchain, not Nix's C compiler wrapper
+            unset NIX_CFLAGS_COMPILE
+            unset NIX_LDFLAGS
+            unset NIX_CC
+            unset NIX_BINTOOLS
+
+            # Point CC/CXX to system clang, not Nix's wrapper
+            # This ensures Swift Package Manager uses the correct toolchain for C/C++ dependencies
+            export CC=/usr/bin/clang
+            export CXX=/usr/bin/clang++
+
             echo "🚀 AFMBridge Development Environment"
+            echo ""
+            echo "Prerequisites (install via Homebrew):"
+            echo "  brew install swift-format swiftlint"
             echo ""
             echo "Available commands:"
             echo "  just --list       Show all tasks"

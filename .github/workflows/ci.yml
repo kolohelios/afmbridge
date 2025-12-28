@@ -8,9 +8,15 @@ on:
 jobs:
   validate:
     name: Validate
-    runs-on: macos-latest
+    runs-on: macos-15
     steps:
       - uses: actions/checkout@v4
+
+      # Install Swift tooling via Homebrew (not Nix)
+      # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
+      # System Xcode provides Swift 6.1.2 on macos-15
+      - name: Install Swift tools
+        run: brew install swift-format swiftlint
 
       - name: Install Nix
         uses: cachix/install-nix-action@v30
@@ -21,7 +27,7 @@ jobs:
       - name: Check Nix flake
         run: nix flake check
 
-      - name: Validate infrastructure (format + lint)
+      - name: Validate (format + lint + test + build)
         run: |
           nix develop --command just validate
 
