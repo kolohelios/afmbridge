@@ -1,7 +1,8 @@
 import Foundation
 
 /// Errors that can occur when interacting with Foundation Models
-enum LLMError: LocalizedError { /// The requested model is not available on this system
+enum LLMError: LocalizedError {
+    /// The requested model is not available on this system
     case modelNotAvailable(String)
 
     /// The FoundationModels framework is not available (requires macOS 26.0+)
