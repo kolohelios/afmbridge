@@ -1,0 +1,40 @@
+# Build artifacts
+.build/
+result
+result-*
+
+# Swift Package Manager
+.swiftpm/
+*.xcodeproj
+*.xcworkspace
+
+# Nix
+.direnv/
+
+# Version control
+.git/
+.jj/
+.gitignore
+
+# IDE
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# Documentation (not needed in image)
+*.md
+!README.md
+
+# CI/CD
+.github/
+
+# Development tools
+Justfile
+
+# Logs
+*.log
+
+# macOS
+.DS_Store
