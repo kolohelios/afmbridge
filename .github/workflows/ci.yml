@@ -6,13 +6,50 @@ on:
   pull_request:
 
 jobs:
-  lint-docs:
-    name: Lint Documentation
-    runs-on: ubuntu-latest
+  validate:
+    name: Validate
+    runs-on: macos-latest
     steps:
       - uses: actions/checkout@v4
 
-      - name: Lint Markdown files
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Check Nix flake
+        run: nix flake check
+
+      - name: Validate infrastructure (format + lint)
         run: |
-          npm install -g markdownlint-cli2
-          markdownlint-cli2 "**/*.md" "#node_modules"
+          nix develop --command just validate
+
+      # TODO: Re-enable in Phase 1 when tests exist
+      # - name: Check code coverage
+      #   run: |
+      #     nix develop --command bash -c '
+      #       swift test --enable-code-coverage
+      #       COVERAGE=$(xcrun llvm-cov export \
+      #         .build/debug/afmbridgePackageTests.xctest/Contents/MacOS/afmbridgePackageTests \
+      #         --instr-profile .build/debug/codecov/default.profdata \
+      #         --format=lcov 2>/dev/null | grep -o "LF:[0-9]*" | cut -d: -f2 | awk "{s+=\$1} END {print s}")
+      #       LINES=$(xcrun llvm-cov export \
+      #         .build/debug/afmbridgePackageTests.xctest/Contents/MacOS/afmbridgePackageTests \
+      #         --instr-profile .build/debug/codecov/default.profdata \
+      #         --format=lcov 2>/dev/null | grep -o "LH:[0-9]*" | cut -d: -f2 | awk "{s+=\$1} END {print s}")
+      #       if [ -n "$LINES" ] && [ -n "$COVERAGE" ] && [ "$COVERAGE" -gt 0 ]; then
+      #         PERCENT=$((LINES * 100 / COVERAGE))
+      #         echo "Code coverage: ${PERCENT}%"
+      #         if [ "$PERCENT" -lt 80 ]; then
+      #           echo "Error: Code coverage is below 80%"
+      #           exit 1
+      #         fi
+      #       else
+      #         echo "Warning: Could not calculate coverage (no tests yet)"
+      #       fi
+      #     '
+
+      # TODO: Re-enable in Phase 1 when Swift build works
+      # - name: Build Docker image
+      #   run: nix build .#docker

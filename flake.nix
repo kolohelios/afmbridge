@@ -63,51 +63,13 @@
         };
 
         # Package outputs
+        # TODO: Re-enable in Phase 1 when Swift code exists
         packages = {
-          # Default package (the server binary)
-          default = pkgs.stdenv.mkDerivation {
-            pname = "afmbridge";
-            version = "0.1.0";
-
-            src = ./.;
-
-            buildInputs = [ pkgs.swift ];
-
-            buildPhase = ''
-              swift build -c release
-            '';
-
-            installPhase = ''
-              mkdir -p $out/bin
-              cp .build/release/AFMBridge $out/bin/
-            '';
-
-            meta = with pkgs.lib; {
-              description = "Apple Foundation Models Bridge - OpenAI & Anthropic compatible API";
-              homepage = "https://github.com/kolohelios/afmbridge";
-              license = licenses.mit;
-              platforms = platforms.darwin;
-            };
-          };
-
-          # Docker image
-          docker = pkgs.dockerTools.buildLayeredImage {
-            name = "afmbridge";
-            tag = "latest";
-
-            contents = [ self.packages.${system}.default ];
-
-            config = {
-              Cmd = [ "/bin/AFMBridge" ];
-              ExposedPorts = {
-                "8080/tcp" = { };
-              };
-              Env = [
-                "HOST=0.0.0.0"
-                "PORT=8080"
-              ];
-            };
-          };
+          # Placeholder - will be the server binary in Phase 1
+          default = pkgs.runCommand "afmbridge-placeholder" { } ''
+            mkdir -p $out
+            echo "Phase 0: Infrastructure only - no build artifacts yet" > $out/README
+          '';
         };
 
         # Formatter
