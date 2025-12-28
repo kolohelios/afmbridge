@@ -34,31 +34,25 @@ format-check:
 # Run all tests with code coverage
 test:
     @echo "🧪 Running tests with coverage..."
-    @# TODO: Re-enable in Phase 1 when we have actual tests
-    @# Currently disabled - no test files exist yet in Phase 0
-    @# swift test --enable-code-coverage
-    @echo "⚠️  Tests temporarily disabled (Phase 0 - no tests yet)"
-    @echo "✅ Tests skipped"
+    xcrun swift test --enable-code-coverage
+    @echo "✅ Tests complete"
 
 # Build the project
 build:
     @echo "🔨 Building project..."
-    @# TODO: Re-enable in Phase 1 when Package.swift dependencies are resolved
-    @# Currently disabled - Swift toolchain issue in Nix
-    @# swift build
-    @echo "⚠️  Build temporarily disabled (Phase 0 - Swift toolchain setup)"
-    @echo "✅ Build skipped"
+    xcrun swift build
+    @echo "✅ Build complete"
 
 # Build for release
 build-release:
     @echo "🔨 Building release binary..."
-    swift build -c release
+    xcrun swift build -c release
     @echo "✅ Release build complete"
 
 # Run the server locally
 run:
     @echo "🚀 Starting AFMBridge server..."
-    swift run
+    xcrun swift run
 
 # Run the server with environment variables
 run-dev:
@@ -100,13 +94,13 @@ clean-all: clean
 # Update dependencies
 update-deps:
     @echo "📦 Updating Swift dependencies..."
-    swift package update
+    xcrun swift package update
     @echo "✅ Dependencies updated"
 
 # Resolve dependencies
 resolve-deps:
     @echo "📦 Resolving Swift dependencies..."
-    swift package resolve
+    xcrun swift package resolve
     @echo "✅ Dependencies resolved"
 
 # Generate Xcode project
