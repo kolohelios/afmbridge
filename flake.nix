@@ -22,6 +22,12 @@
         # NOTE: swift-format and swiftlint are NOT included from Nix
         # Reason: They pull in apple-sdk-14.4 which conflicts with Swift 6
         # Install via: brew install swift-format swiftlint
+        # Python with SDK testing packages
+        pythonWithPackages = pkgs.python3.withPackages (ps: with ps; [
+          openai
+          anthropic
+        ]);
+
         devTools = with pkgs; [
           # Task runner
           just
@@ -37,6 +43,9 @@
 
           # Direnv for automatic env loading
           direnv
+
+          # Python with SDK packages for integration tests
+          pythonWithPackages
         ];
 
       in
@@ -73,6 +82,9 @@
             echo "  just --list       Show all tasks"
             echo "  just validate     Run all quality checks"
             echo "  swift --version   Check Swift version"
+            echo ""
+            echo "SDK Testing:"
+            echo "  python3 Tests/SDKTests/test_openai_sdk.py"
             echo ""
             echo "Swift version:"
             swift --version
