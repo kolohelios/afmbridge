@@ -231,6 +231,76 @@ Releases are automated (`.github/workflows/release.yml`):
 - Builds and pushes Docker image to GHCR
 - Creates GitHub release with artifacts
 
+## Beads Task Workflow
+
+**For EVERY beads task**, follow this exact workflow:
+
+### 1. Setup and Sync
+
+```bash
+jj git fetch                    # Pull latest from remote
+bd sync                         # Sync beads issues
+jj bookmark list                # Check for merged bookmarks
+# Delete any merged bookmarks manually if needed
+```
+
+### 2. Start Work
+
+```bash
+bd ready                        # List ready tasks
+bd update <task-id> --status in_progress
+# Work on the task: write code, docs, tests
+just validate                   # Validate before committing
+```
+
+### 3. Commit Changes
+
+```bash
+jj describe -m "type(scope): description"
+```
+
+**CRITICAL COMMIT RULES:**
+
+- ❌ NEVER mention Claude, AI, or automation in commit messages
+- ❌ NEVER reference beads task IDs in commit messages
+- ✅ Write commits as if a human developer wrote them
+- ✅ Focus on "why" in the title, "what/how" in the body
+- ✅ Keep title under 70 characters
+- ✅ Follow conventional commit format
+
+### 4. Push and Create PR
+
+```bash
+jj bookmark create <descriptive-name>  # e.g., "add-streaming-support"
+jj git push --all                      # Push to remote
+gh pr create --head <bookmark-name> --base main --title "..." --body "..."
+```
+
+**CRITICAL PR RULES:**
+
+- ❌ NEVER mention Claude or AI in PR descriptions
+- ❌ NEVER include "Generated with Claude Code" or similar
+- ✅ Write PRs as if a human developer wrote them
+- ✅ Focus on motivation, impact, and testing
+- ✅ Reference related issues naturally (e.g., "Resolves <task-id>")
+
+### 5. Update Beads Issue
+
+```bash
+bd comments add <task-id> "PR #<number> created - awaiting review"
+# Keep issue OPEN until PR is merged
+```
+
+### 6. After PR Merges
+
+```bash
+bd update <task-id> --status closed
+jj git fetch                           # Get latest main
+jj bookmark delete <bookmark-name>     # Clean up merged bookmark
+```
+
+**Never close a beads issue until the PR is merged into main.**
+
 ## Agent Checklist
 
 When working as an AI agent on this project:
