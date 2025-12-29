@@ -41,12 +41,10 @@ public struct OpenAIController: RouteCollection {
         // Extract system instructions
         let systemInstructions = messageTranslator.extractSystemInstructions(from: messages)
 
-        // Extract user prompt
-        let userPrompt = try messageTranslator.extractUserPrompt(from: messages)
-
-        // Generate response using LLM provider
+        // Extract user prompt and generate response
         let generatedContent: String
         do {
+            let userPrompt = try messageTranslator.extractUserPrompt(from: messages)
             generatedContent = try await llmProvider.respond(
                 to: userPrompt, systemInstructions: systemInstructions)
         } catch let error as LLMError {

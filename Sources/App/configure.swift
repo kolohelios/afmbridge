@@ -1,7 +1,8 @@
 import Configuration
+import Services
 import Vapor
 
-@available(macOS 26.0, *) func configure(_ app: Application) async throws {
+func configure(_ app: Application, llmProvider: LLMProvider? = nil) async throws {
     // Load server configuration from environment
     let config = ServerConfig()
 
@@ -17,8 +18,8 @@ import Vapor
     app.http.server.configuration.hostname = config.hostname
     app.http.server.configuration.port = config.port
 
-    // Register routes
-    try routes(app)
+    // Register routes (optionally with test provider)
+    try routes(app, llmProvider: llmProvider)
 }
 
 /// Middleware to log incoming requests
