@@ -16,6 +16,24 @@ and Anthropic-compatible APIs, supporting multiple streaming modes.
 
 **VCS:** Jujutsu (jj)
 
+## Apple FoundationModels API References
+
+This project uses Apple's FoundationModels framework for on-device LLM inference:
+
+- **Official Documentation**: [FoundationModels | Apple Developer](https://developer.apple.com/documentation/FoundationModels)
+- **LanguageModelSession**: [LanguageModelSession API](https://developer.apple.com/documentation/foundationmodels/languagemodelsession)
+- **Streaming API**: [streamResponse(options:prompt:)](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/streamresponse(options:prompt:))
+- **WWDC 2025 Session**: [Meet the Foundation Models framework](https://developer.apple.com/videos/play/wwdc2025/286/)
+- **Guide**: [Generating content with Foundation Models](https://developer.apple.com/documentation/FoundationModels/generating-content-and-performing-tasks-with-foundation-models)
+
+**Key Capabilities**:
+
+- `respond(options:prompt:)` - Non-streaming completion
+- `streamResponse(options:prompt:)` - Returns `AsyncSequence` of cumulative snapshots
+- Snapshot-based streaming: Each iteration provides cumulative text so far
+- On-device inference with privacy protection
+- Requires macOS 26.0+ (Tahoe) with Apple Intelligence enabled
+
 ## Project Structure
 
 Create new standalone project: `afmbridge/`
@@ -517,7 +535,7 @@ just clean           # Clean build artifacts
 
 ### Phase 2: Streaming Support
 
-**Goal:** Add SSE streaming for OpenAI endpoint
+**Goal:** Add real SSE streaming using FoundationModels AsyncSequence API
 
 **Commits:** 36-43 (8 commits)
 
@@ -543,42 +561,44 @@ just clean           # Clean build artifacts
 
 #### 2.2 Streaming Service
 
-**Commit 23:** `feat(service): add StreamingService for chunk simulation`
+**Commit 23:** `feat(service): add real streaming via streamResponse()`
+
+- Update `Sources/Services/FoundationModelService.swift`
+- Add `streamRespond(to:systemInstructions:)` method using `streamResponse()`
+- Returns `AsyncSequence` of snapshots from FoundationModels
+- Update `LLMProvider` protocol with streaming method
+- Test: Builds successfully
+
+**Commit 24:** `feat(service): add StreamingService for delta conversion`
 
 - Create `Sources/Services/StreamingService.swift`
-- Implement `simulateChunks(_ fullResponse:, id:)` method
-- Split response into word-level chunks
+- Implement `convertSnapshotsToDeltas(_ snapshots:, id:)` method
+- Diff consecutive snapshots to create OpenAI-style deltas
 - Create initial role chunk
-- Create content chunks
+- Create delta chunks for content changes
 - Create final chunk with finish_reason
 - Test: Builds successfully
 
-**Commit 24:** `test(service): add StreamingService tests`
+**Commit 25:** `test(service): add StreamingService tests`
 
 - Create `Tests/AppTests/Services/StreamingServiceTests.swift`
-- Test chunk generation from full response
-- Test chunk ordering (role → content → finish)
+- Test snapshot-to-delta conversion
+- Test chunk ordering (role → deltas → finish)
+- Mock AsyncSequence for testing
 - Test: All streaming tests pass
 
 #### 2.3 SSE Response Handler
 
-**Commit 25:** `feat(controller): add SSE streaming to OpenAIController`
+**Commit 26:** `feat(controller): add SSE streaming to OpenAIController`
 
 - Update `Sources/Controllers/OpenAIController.swift`
 - Implement `streamChatCompletion(req:request:)` method
 - Set SSE headers (`text/event-stream`, `no-cache`)
-- Create `AsyncStream<ByteBuffer>` for chunks
-- Send chunks with configurable delay
+- Consume AsyncSequence from FoundationModelService
+- Convert snapshots to SSE chunks via StreamingService
 - Send `[DONE]` marker at end
 - Update `chatCompletions` to route streaming requests
 - Test: Builds successfully
-
-**Commit 26:** `feat(config): add STREAMING_DELAY_MS to ServerConfig`
-
-- Update `Sources/Configuration/ServerConfig.swift`
-- Add `streamingDelayMs` property (default: 20)
-- Load from `STREAMING_DELAY_MS` environment variable
-- Test: Config loads with streaming delay
 
 #### 2.4 Testing
 
@@ -588,6 +608,7 @@ just clean           # Clean build artifacts
 - Test SSE streaming response format
 - Test chunk ordering
 - Test `[DONE]` marker
+- Test real AsyncSequence streaming
 - Test: Streaming E2E test passes
 
 **Commit 28:** `docs(readme): add streaming examples and documentation`
@@ -595,14 +616,15 @@ just clean           # Clean build artifacts
 - Update `README.md` with:
   - Streaming API examples
   - SSE format explanation
-  - Configuration for STREAMING_DELAY_MS
+  - Note about real streaming via FoundationModels
 - Test: Documentation is accurate
 
-**Phase 2 Deliverable:** OpenAI endpoint with both streaming and non-streaming modes
+**Phase 2 Deliverable:** OpenAI endpoint with real streaming using AFM AsyncSequence
 
 - Total commits in phase: 8 (commits 36-43)
 - All tests passing (`just validate`)
-- Streaming fully functional
+- Real token-by-token streaming from FoundationModels
+- Lower time-to-first-token compared to non-streaming
 
 ---
 
@@ -694,12 +716,13 @@ just clean           # Clean build artifacts
 
 #### 3.5 Anthropic Streaming
 
-**Commit 38:** `feat(service): add Anthropic streaming to StreamingService`
+**Commit 38:** `feat(service): add Anthropic event conversion to StreamingService`
 
 - Update `Sources/Services/StreamingService.swift`
-- Add `simulateAnthropicEvents(_ fullResponse:, id:)` method
-- Generate named SSE events (message_start, content_block_delta, etc.)
+- Add `convertSnapshotsToAnthropicEvents(_ snapshots:, id:)` method
+- Convert AsyncSequence snapshots to named SSE events (message_start, content_block_delta, etc.)
 - Follow Anthropic event sequence
+- Use real streaming from FoundationModelService
 - Test: Builds successfully
 
 **Commit 39:** `feat(controller): add Anthropic SSE streaming`
@@ -707,15 +730,17 @@ just clean           # Clean build artifacts
 - Update `Sources/Controllers/AnthropicController.swift`
 - Implement `streamMessages(req:request:)` method
 - Set SSE headers with named events
-- Send Anthropic-formatted event stream
+- Consume AsyncSequence from FoundationModelService
+- Convert snapshots to Anthropic events via StreamingService
 - Update `messages` to route streaming requests
 - Test: Builds successfully
 
 **Commit 40:** `test(service): add Anthropic streaming tests`
 
 - Update `Tests/AppTests/Services/StreamingServiceTests.swift`
-- Test Anthropic event generation
+- Test snapshot-to-Anthropic-event conversion
 - Test event ordering and format
+- Mock AsyncSequence for testing
 - Test: Streaming tests pass
 
 #### 3.6 Routes
@@ -923,11 +948,12 @@ just clean           # Clean build artifacts
 
 ## Key Technical Decisions
 
-### 1. Simulated Streaming
+### 1. Real Streaming via AsyncSequence
 
-**Trade-off:** FoundationModels doesn't support streaming → simulate by chunking complete response
-**Rationale:** Provides API compatibility while accepting latency trade-off
-**Implementation:** Word-level chunking with configurable delay (20ms default)
+**Capability:** FoundationModels provides native streaming via `streamResponse()` API
+**Implementation:** Use `LanguageModelSession.streamResponse()` which returns `AsyncSequence` of snapshots
+**Benefits:** True token-by-token streaming, lower time-to-first-token, progressive response display
+**Delta Conversion:** Convert snapshot-based streaming to delta-based chunks for OpenAI/Anthropic compatibility
 
 ### 2. Stateless Conversations
 
@@ -1026,7 +1052,6 @@ HOST=0.0.0.0
 PORT=8080
 API_KEY=sk-secret           # Optional
 MAX_TOKENS=2048
-STREAMING_DELAY_MS=20
 LOG_LEVEL=info
 ```text
 
