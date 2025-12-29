@@ -628,17 +628,224 @@ just clean           # Clean build artifacts
 
 ---
 
-### Phase 3: Anthropic Support
+### Phase 3: Tool Calling Support
+
+**Goal:** Implement dynamic tool calling with OpenAI-compatible API using AFM's native Tool protocol
+
+**Commits:** 44-60 (17 commits)
+
+**References:**
+
+Apple Foundation Models supports native tool calling through the `Tool` protocol:
+
+- [Expanding generation with tool calling](https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling) - Official tool calling guide
+- [Tool Protocol Documentation](https://developer.apple.com/documentation/foundationmodels/tool) - API reference
+- [WWDC 2025: Meet the Foundation Models framework](https://developer.apple.com/videos/play/wwdc2025/286/) - Introduction to AFM
+- [WWDC 2025: Deep dive into Foundation Models](https://developer.apple.com/videos/play/wwdc2025/301/) - Advanced tool calling patterns
+- [Code-along: Bring on-device AI to your app](https://developer.apple.com/videos/play/wwdc2025/259/) - Practical examples
+- [Foundation Models Code-Along Instructions](https://developer.apple.com/events/resources/code-along-205/) - Step-by-step guide
+
+**Architecture:** Dynamic Tool Bridging
+
+- Accept OpenAI-style tool definitions (JSON Schema) in requests
+- Dynamically generate AFM Tool protocol conformances at runtime
+- Support both server-side execution and client callback patterns
+- Leverage AFM's automatic tool calling orchestration
+- Convert multi-turn tool calling to OpenAI format
+
+#### 3.1 Tool Protocol Infrastructure
+
+**Commit 44:** `feat(models): add AFM Tool protocol wrapper types`
+
+- Create `Sources/Models/ToolDefinition.swift`
+- Define `ToolDefinition` struct (name, description, parameters schema)
+- Define `ToolCall` struct (id, name, arguments)
+- Define `ToolResult` struct (tool_call_id, output)
+- Support JSON Schema parameter definitions
+- Test: Models compile and encode/decode correctly
+
+**Commit 45:** `feat(dto): add OpenAI tool calling request DTOs`
+
+- Update `Sources/DTOs/OpenAI/ChatCompletionRequest.swift`
+- Add `tools` array field (optional)
+- Add `tool_choice` field (auto/none/required/specific tool)
+- Define `Tool` struct with function definition
+- Define `FunctionDefinition` with JSON Schema parameters
+- Test: Tool definitions decode from OpenAI format
+
+**Commit 46:** `feat(dto): add OpenAI tool calling response DTOs`
+
+- Update `Sources/DTOs/OpenAI/ChatCompletionResponse.swift`
+- Add `tool_calls` array to message
+- Define `ToolCall` struct (id, type, function)
+- Define `FunctionCall` struct (name, arguments JSON)
+- Support `finish_reason: "tool_calls"`
+- Test: Tool call responses encode to OpenAI format
+
+**Commit 47:** `test(dto): add unit tests for tool calling DTOs`
+
+- Update `Tests/AppTests/DTOs/OpenAITests.swift`
+- Test tool definition parsing
+- Test tool call response generation
+- Test various tool_choice modes
+- Test: All tool calling DTO tests pass
+
+#### 3.2 Dynamic Tool Creation
+
+**Commit 48:** `feat(service): add ToolFactory for dynamic Tool creation`
+
+- Create `Sources/Services/ToolFactory.swift`
+- Implement `createTool(from definition:, executor:)` method
+- Dynamically generate AFM Tool protocol conformances
+- Parse JSON Schema to extract parameter types
+- Support callback-based execution pattern
+- Test: Factory creates valid Tool instances
+
+**Commit 49:** `feat(service): add ToolExecutor protocol and registry`
+
+- Create `Sources/Services/ToolExecutor.swift`
+- Define `ToolExecutor` protocol for tool execution
+- Implement `ToolRegistry` for managing available tools
+- Support both synchronous and async tool execution
+- Handle tool execution errors gracefully
+- Test: Tool registration and lookup works
+
+**Commit 50:** `test(service): add ToolFactory and ToolExecutor tests`
+
+- Create `Tests/AppTests/Services/ToolTests.swift`
+- Test dynamic tool creation from JSON Schema
+- Test tool parameter validation
+- Test tool execution with mock executors
+- Test error handling for invalid tools
+- Test: All tool service tests pass
+
+#### 3.3 Tool Calling Integration
+
+**Commit 51:** `feat(service): add tool calling to FoundationModelService`
+
+- Update `Sources/Services/FoundationModelService.swift`
+- Add `respondWithTools(to:tools:systemInstructions:)` method
+- Create AFM Tool instances from OpenAI definitions
+- Pass tools to LanguageModelSession
+- Handle tool calling responses from AFM
+- Extract tool calls from model output
+- Test: Tool calling integration builds successfully
+
+**Commit 52:** `feat(service): add ToolCallHandler for multi-turn orchestration`
+
+- Create `Sources/Services/ToolCallHandler.swift`
+- Implement multi-turn tool calling loop
+- Execute tools called by the model
+- Feed tool results back to the model
+- Support parallel tool execution
+- Handle tool calling completion
+- Test: Multi-turn tool orchestration works
+
+**Commit 53:** `test(service): add FoundationModelService tool calling tests`
+
+- Update `Tests/AppTests/Services/FoundationModelServiceTests.swift`
+- Test tool calling flow with mocks
+- Test multi-turn tool conversations
+- Test parallel tool execution
+- Test tool calling error handling
+- Test: All tool calling tests pass
+
+#### 3.4 Controller Integration
+
+**Commit 54:** `feat(controller): add tool calling to OpenAIController`
+
+- Update `Sources/Controllers/OpenAIController.swift`
+- Parse tool definitions from request
+- Create tool executors for each tool
+- Handle tool_choice parameter
+- Return tool_calls in response when model calls tools
+- Support assistant messages with tool_calls
+- Test: Tool calling endpoint builds successfully
+
+**Commit 55:** `feat(controller): add tool result submission endpoint`
+
+- Update `Sources/Controllers/OpenAIController.swift`
+- Support messages with role="tool" containing tool results
+- Continue conversation with tool outputs
+- Handle multiple tool results in one request
+- Generate final response after tool execution
+- Test: Tool result handling works
+
+**Commit 56:** `test(controller): add OpenAIController tool calling tests`
+
+- Update `Tests/AppTests/Controllers/OpenAIControllerTests.swift`
+- Test tool definition parsing
+- Test tool call response generation
+- Test tool result submission
+- Test multi-turn tool calling flow
+- Test: All controller tool tests pass
+
+#### 3.5 Streaming with Tools
+
+**Commit 57:** `feat(streaming): add tool call support to streaming responses`
+
+- Update `Sources/Services/StreamingService.swift`
+- Stream tool_calls as they're generated
+- Send delta chunks for tool call arguments
+- Support `finish_reason: "tool_calls"` in streams
+- Handle streaming continuation after tool results
+- Test: Streaming with tool calls works
+
+**Commit 58:** `test(streaming): add streaming tool calling tests`
+
+- Update `Tests/AppTests/Services/StreamingServiceTests.swift`
+- Test tool call chunk generation
+- Test streaming tool call arguments
+- Test finish reason with tool calls
+- Test: Streaming tool tests pass
+
+#### 3.6 Integration Testing
+
+**Commit 59:** `test(integration): add tool calling E2E tests`
+
+- Create `Tests/AppTests/Integration/ToolCallingTests.swift`
+- Test simple tool calling (calculator, weather, etc.)
+- Test multi-turn tool conversations
+- Test parallel tool execution
+- Test streaming with tool calls
+- Test tool calling error cases
+- Test: Tool calling E2E tests pass
+
+**Commit 60:** `docs(api): add tool calling documentation to API.md`
+
+- Update `API.md` with:
+  - Tool calling request format
+  - Tool definition schema
+  - Tool call response format
+  - Tool result submission
+  - Multi-turn tool calling examples
+  - Streaming with tool calls
+  - Example tools (calculator, weather lookup)
+- Update `README.md` with tool calling feature
+- Test: Documentation is accurate and complete
+
+**Phase 3 Deliverable:** OpenAI-compatible tool calling with AFM native execution
+
+- Total commits in phase: 17 (commits 44-60)
+- All tests passing (`just validate`)
+- Dynamic tool creation from JSON Schema
+- Multi-turn tool calling support
+- Streaming with tool calls
+- Server-side and client callback patterns
+
+---
+
+### Phase 4: Anthropic Support
 
 **Goal:** Add Anthropic Messages API compatibility
 
-**Commits:** 44-58 (15 commits)
+**Commits:** 61-75 (15 commits)
 
-**Note:** Add 43 to commit numbers in original plan (commits were 29-43, now 44-58)
+**Note:** Renumbered from original Phase 3 (was commits 44-58, now 61-75)
 
-#### 3.1 Anthropic DTOs
+#### 4.1 Anthropic DTOs
 
-**Commit 29:** `feat(dto): add Anthropic MessageRequest model`
+**Commit 61:** `feat(dto): add Anthropic MessageRequest model`
 
 - Create `Sources/DTOs/Anthropic/MessageRequest.swift`
 - Define: `model`, `messages`, `max_tokens` (required), `stream`, `system`, `temperature`
@@ -646,7 +853,7 @@ just clean           # Clean build artifacts
 - Conform to `Content`
 - Test: Model decodes from JSON correctly
 
-**Commit 30:** `feat(dto): add Anthropic MessageResponse model`
+**Commit 62:** `feat(dto): add Anthropic MessageResponse model`
 
 - Create `Sources/DTOs/Anthropic/MessageResponse.swift`
 - Define: `id`, `type`, `role`, `content`, `model`, `stop_reason`
@@ -654,7 +861,7 @@ just clean           # Clean build artifacts
 - Conform to `Content`
 - Test: Model encodes to JSON correctly
 
-**Commit 31:** `feat(dto): add Anthropic StreamEvent models`
+**Commit 63:** `feat(dto): add Anthropic StreamEvent models`
 
 - Create `Sources/DTOs/Anthropic/StreamEvent.swift`
 - Define `StreamEventType` enum
@@ -662,7 +869,7 @@ just clean           # Clean build artifacts
 - Conform to `Content`
 - Test: Models encode correctly
 
-**Commit 32:** `test(dto): add unit tests for Anthropic DTOs`
+**Commit 64:** `test(dto): add unit tests for Anthropic DTOs`
 
 - Create `Tests/AppTests/DTOs/AnthropicTests.swift`
 - Test request decoding
@@ -670,9 +877,9 @@ just clean           # Clean build artifacts
 - Test stream event formatting
 - Test: All Anthropic DTO tests pass
 
-#### 3.2 Message Translation (Anthropic)
+#### 4.2 Message Translation (Anthropic)
 
-**Commit 33:** `feat(service): add Anthropic message translation`
+**Commit 65:** `feat(service): add Anthropic message translation`
 
 - Update `Sources/Services/MessageTranslationService.swift`
 - Add `translateAnthropicToFoundationModels(messages:system:)` method
@@ -680,25 +887,25 @@ just clean           # Clean build artifacts
 - Convert user/assistant messages
 - Test: Builds successfully
 
-**Commit 34:** `test(service): add Anthropic translation tests`
+**Commit 66:** `test(service): add Anthropic translation tests`
 
 - Update `Tests/AppTests/Services/MessageTranslationServiceTests.swift`
 - Test Anthropic format conversion
 - Test system prompt handling
 - Test: Translation tests pass
 
-#### 3.3 FoundationModelService (Anthropic)
+#### 4.3 FoundationModelService (Anthropic)
 
-**Commit 35:** `feat(service): add Anthropic support to FoundationModelService`
+**Commit 67:** `feat(service): add Anthropic support to FoundationModelService`
 
 - Update `Sources/Services/Services/FoundationModelService.swift`
 - Add `respond(to: MessageRequest)` method
 - Use translation service for format conversion
 - Test: Builds successfully
 
-#### 3.4 Anthropic Controller
+#### 4.4 Anthropic Controller
 
-**Commit 36:** `feat(controller): add AnthropicController with non-streaming`
+**Commit 68:** `feat(controller): add AnthropicController with non-streaming`
 
 - Create `Sources/Controllers/AnthropicController.swift`
 - Implement `messages(req:)` method
@@ -706,7 +913,7 @@ just clean           # Clean build artifacts
 - Generate MessageResponse with content blocks
 - Test: Builds successfully
 
-**Commit 37:** `test(controller): add AnthropicController tests`
+**Commit 69:** `test(controller): add AnthropicController tests`
 
 - Create `Tests/AppTests/Controllers/AnthropicControllerTests.swift`
 - Test request handling
@@ -714,9 +921,9 @@ just clean           # Clean build artifacts
 - Use mock LLMProvider
 - Test: All controller tests pass
 
-#### 3.5 Anthropic Streaming
+#### 4.5 Anthropic Streaming
 
-**Commit 38:** `feat(service): add Anthropic event conversion to StreamingService`
+**Commit 70:** `feat(service): add Anthropic event conversion to StreamingService`
 
 - Update `Sources/Services/StreamingService.swift`
 - Add `convertSnapshotsToAnthropicEvents(_ snapshots:, id:)` method
@@ -725,7 +932,7 @@ just clean           # Clean build artifacts
 - Use real streaming from FoundationModelService
 - Test: Builds successfully
 
-**Commit 39:** `feat(controller): add Anthropic SSE streaming`
+**Commit 71:** `feat(controller): add Anthropic SSE streaming`
 
 - Update `Sources/Controllers/AnthropicController.swift`
 - Implement `streamMessages(req:request:)` method
@@ -735,7 +942,7 @@ just clean           # Clean build artifacts
 - Update `messages` to route streaming requests
 - Test: Builds successfully
 
-**Commit 40:** `test(service): add Anthropic streaming tests`
+**Commit 72:** `test(service): add Anthropic streaming tests`
 
 - Update `Tests/AppTests/Services/StreamingServiceTests.swift`
 - Test snapshot-to-Anthropic-event conversion
@@ -743,25 +950,25 @@ just clean           # Clean build artifacts
 - Mock AsyncSequence for testing
 - Test: Streaming tests pass
 
-#### 3.6 Routes
+#### 4.6 Routes
 
-**Commit 41:** `feat(routes): add Anthropic /v1/messages endpoint`
+**Commit 73:** `feat(routes): add Anthropic /v1/messages endpoint`
 
 - Update `Sources/App/routes.swift`
 - Add `/v1/messages` POST route
 - Wire up AnthropicController
 - Test: Routes register successfully
 
-#### 3.7 Testing
+#### 4.7 Testing
 
-**Commit 42:** `test(integration): add Anthropic E2E tests`
+**Commit 74:** `test(integration): add Anthropic E2E tests`
 
 - Update `Tests/AppTests/Integration/E2ETests.swift`
 - Test Anthropic non-streaming requests
 - Test Anthropic streaming with named events
 - Test: E2E tests pass
 
-**Commit 43:** `docs(readme): add Anthropic API documentation`
+**Commit 75:** `docs(readme): add Anthropic API documentation`
 
 - Update `README.md` with:
   - Anthropic API examples
@@ -769,25 +976,25 @@ just clean           # Clean build artifacts
   - API compatibility notes
 - Test: Documentation is accurate
 
-**Phase 3 Deliverable:** Full compatibility with both OpenAI and Anthropic APIs
+**Phase 4 Deliverable:** Full compatibility with both OpenAI and Anthropic APIs
 
-- Total commits in phase: 15 (commits 44-58)
+- Total commits in phase: 15 (commits 61-75)
 - All tests passing (`just validate`)
 - Both APIs fully functional
 
 ---
 
-### Phase 4: Production Hardening
+### Phase 5: Production Hardening
 
 **Goal:** Production-ready features
 
-**Commits:** 59-75 (17 commits)
+**Commits:** 76-92 (17 commits)
 
-**Note:** Add 58 to commit numbers in original plan (commits were 44-60, now 59-75)
+**Note:** Renumbered from original Phase 4 (was commits 59-75, now 76-92)
 
-#### 4.1 Error Response Models
+#### 5.1 Error Response Models
 
-**Commit 44:** `feat(dto): add error response models`
+**Commit 76:** `feat(dto): add error response models`
 
 - Create `Sources/DTOs/ErrorResponse.swift`
 - Define OpenAI/Anthropic compatible error format
@@ -795,9 +1002,9 @@ just clean           # Clean build artifacts
 - Conform to `Content`
 - Test: Error models encode correctly
 
-#### 4.2 Error Middleware
+#### 5.2 Error Middleware
 
-**Commit 45:** `feat(middleware): add ErrorMiddleware for error handling`
+**Commit 77:** `feat(middleware): add ErrorMiddleware for error handling`
 
 - Create `Sources/Middleware/ErrorMiddleware.swift`
 - Map `LLMError` cases to HTTP status codes
@@ -805,22 +1012,22 @@ just clean           # Clean build artifacts
 - Handle generic errors
 - Test: Builds successfully
 
-**Commit 46:** `test(middleware): add ErrorMiddleware tests`
+**Commit 78:** `test(middleware): add ErrorMiddleware tests`
 
 - Create `Tests/AppTests/Middleware/ErrorMiddlewareTests.swift`
 - Test each error type mapping
 - Test response format
 - Test: All error handling tests pass
 
-**Commit 47:** `feat(app): register ErrorMiddleware in configure`
+**Commit 79:** `feat(app): register ErrorMiddleware in configure`
 
 - Update `Sources/App/configure.swift`
 - Add ErrorMiddleware to middleware stack
 - Test: Error handling works E2E
 
-#### 4.3 Authentication Middleware
+#### 5.3 Authentication Middleware
 
-**Commit 48:** `feat(middleware): add optional API key authentication`
+**Commit 80:** `feat(middleware): add optional API key authentication`
 
 - Create `Sources/Middleware/AuthenticationMiddleware.swift`
 - Check Authorization header for Bearer token
@@ -828,7 +1035,7 @@ just clean           # Clean build artifacts
 - Skip auth if API_KEY not set
 - Test: Builds successfully
 
-**Commit 49:** `test(middleware): add AuthenticationMiddleware tests`
+**Commit 81:** `test(middleware): add AuthenticationMiddleware tests`
 
 - Create `Tests/AppTests/Middleware/AuthenticationMiddlewareTests.swift`
 - Test valid API key
@@ -837,22 +1044,22 @@ just clean           # Clean build artifacts
 - Test auth disabled
 - Test: All auth tests pass
 
-**Commit 50:** `feat(config): add API_KEY to ServerConfig`
+**Commit 82:** `feat(config): add API_KEY to ServerConfig`
 
 - Update `Sources/Configuration/ServerConfig.swift`
 - Add `apiKey` optional property
 - Load from `API_KEY` environment variable
 - Test: Config loads correctly
 
-**Commit 51:** `feat(app): conditionally enable authentication`
+**Commit 83:** `feat(app): conditionally enable authentication`
 
 - Update `Sources/App/configure.swift`
 - Add AuthenticationMiddleware if API_KEY is set
 - Test: Auth works when enabled
 
-#### 4.4 Request/Response Logging
+#### 5.4 Request/Response Logging
 
-**Commit 52:** `feat(middleware): add request logging middleware`
+**Commit 84:** `feat(middleware): add request logging middleware`
 
 - Create `Sources/Middleware/LoggingMiddleware.swift`
 - Log request: method, path, headers
@@ -860,38 +1067,38 @@ just clean           # Clean build artifacts
 - Use structured logging (swift-log)
 - Test: Builds successfully
 
-**Commit 53:** `feat(app): register LoggingMiddleware`
+**Commit 85:** `feat(app): register LoggingMiddleware`
 
 - Update `Sources/App/configure.swift`
 - Add LoggingMiddleware to middleware stack
 - Configure log level from environment
 - Test: Logging works E2E
 
-#### 4.5 Code Coverage & Quality
+#### 5.5 Code Coverage & Quality
 
-**Commit 54:** `test(coverage): ensure 80% code coverage target`
+**Commit 86:** `test(coverage): ensure 80% code coverage target`
 
 - Run `swift test --enable-code-coverage`
 - Add missing tests to reach 80% coverage
 - Document coverage in README
 - Test: Coverage >= 80%
 
-**Commit 55:** `chore(lint): run SwiftLint and fix all warnings`
+**Commit 87:** `chore(lint): run SwiftLint and fix all warnings`
 
 - Run `swiftlint` across codebase
 - Fix all warnings and errors
 - Ensure compliance with .swiftlint.yml
 - Test: `swiftlint` passes with no errors
 
-**Commit 56:** `style(format): run swift-format on all files`
+**Commit 88:** `style(format): run swift-format on all files`
 
 - Run `swift-format` across codebase
 - Fix formatting inconsistencies
 - Test: All files formatted consistently
 
-#### 4.6 Documentation
+#### 5.6 Documentation
 
-**Commit 57:** `docs(readme): add comprehensive README documentation`
+**Commit 89:** `docs(readme): add comprehensive README documentation`
 
 - Update `README.md` with complete documentation:
   - Project description and features
@@ -905,7 +1112,7 @@ just clean           # Clean build artifacts
   - License information
 - Test: Documentation is complete and accurate
 
-**Commit 58:** `docs(api): add API.md with full API specification`
+**Commit 90:** `docs(api): add API.md with full API specification`
 
 - Create `API.md` with:
   - OpenAI endpoint documentation
@@ -915,7 +1122,7 @@ just clean           # Clean build artifacts
   - SSE format details
 - Test: API docs are accurate
 
-**Commit 59:** `docs(contrib): add CONTRIBUTING.md`
+**Commit 91:** `docs(contrib): add CONTRIBUTING.md`
 
 - Create `CONTRIBUTING.md` with:
   - Development setup
@@ -925,9 +1132,9 @@ just clean           # Clean build artifacts
   - PR process
 - Test: Contributing guide is clear
 
-#### 4.7 CI/CD Finalization
+#### 5.7 CI/CD Finalization
 
-**Commit 60:** `chore(ci): finalize GitHub Actions workflow`
+**Commit 92:** `chore(ci): finalize GitHub Actions workflow`
 
 - Update `.github/workflows/ci.yml`
 - Add all quality gates: lint, format-check, test, build
@@ -935,9 +1142,9 @@ just clean           # Clean build artifacts
 - Fail on warnings
 - Test: CI workflow runs successfully
 
-**Phase 4 Deliverable:** Production-ready server
+**Phase 5 Deliverable:** Production-ready server
 
-- Total commits in phase: 17 (commits 59-75)
+- Total commits in phase: 17 (commits 76-92)
 - 80%+ code coverage
 - All quality checks passing (`just validate`)
 - Docker and binary artifacts ready
@@ -1075,13 +1282,14 @@ This plan provides a complete roadmap for building **AFMBridge** (Apple Foundati
 - ✅ Fully documented and linted (code + docs)
 - ✅ AGENTS.md for AI collaboration standards
 
-**Total Commits:** 75 atomic commits across 5 phases (0-4)
+**Total Commits:** 92 atomic commits across 6 phases (0-5)
 
 - Phase 0: Project Foundation (15 commits)
 - Phase 1: MVP OpenAI API (20 commits)
 - Phase 2: Streaming Support (8 commits)
-- Phase 3: Anthropic Support (15 commits)
-- Phase 4: Production Hardening (17 commits)
+- Phase 3: Tool Calling Support (17 commits)
+- Phase 4: Anthropic Support (15 commits)
+- Phase 5: Production Hardening (17 commits)
 
 **Build System:** Nix flakes
 **Task Runner:** just (Justfile)
