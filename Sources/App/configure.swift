@@ -1,9 +1,12 @@
+import Configuration
 import Vapor
 
 @available(macOS 26.0, *) func configure(_ app: Application) async throws {
+    // Load server configuration from environment
+    let config = ServerConfig()
+
     // Configure logging
-    app.logger.logLevel =
-        Environment.get("LOG_LEVEL").flatMap { Logger.Level(rawValue: $0) } ?? .info
+    app.logger.logLevel = config.logLevel
 
     // Configure middleware
     app.middleware = .init()
@@ -11,8 +14,8 @@ import Vapor
     app.middleware.use(RouteLoggingMiddleware(logLevel: .info))
 
     // Configure server
-    app.http.server.configuration.hostname = Environment.get("HOST") ?? "127.0.0.1"
-    app.http.server.configuration.port = Environment.get("PORT").flatMap(Int.init) ?? 8080
+    app.http.server.configuration.hostname = config.hostname
+    app.http.server.configuration.port = config.port
 
     // Register routes
     try routes(app)
