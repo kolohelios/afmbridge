@@ -12,6 +12,20 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      # Cache Swift Package Manager dependencies
+      # Caches: SPM cache, checkouts, and repositories
+      # Key: hash of Package.resolved for deterministic cache invalidation
+      - name: Cache SPM dependencies
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/Library/Caches/org.swift.swiftpm
+            .build/checkouts
+            .build/repositories
+          key: ${{ runner.os }}-spm-${{ hashFiles('Package.resolved') }}
+          restore-keys: |
+            ${{ runner.os }}-spm-
+
       # Install Swift tooling via Homebrew (not Nix)
       # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
       # System Xcode provides Swift 6.1.2 on macos-15
