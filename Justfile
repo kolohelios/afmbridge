@@ -59,8 +59,9 @@ run-dev:
     @echo "🚀 Starting AFMBridge server (development mode)..."
     HOST=127.0.0.1 PORT=8080 LOG_LEVEL=debug swift run
 
-# Run all quality checks (format + lint + test + build)
-validate: format lint test build
+# Run all quality checks (format + lint + test)
+# Note: test already builds, so separate build step is redundant
+validate: format lint test
     @echo "✅ All validation checks passed!"
 
 # Build Docker image
