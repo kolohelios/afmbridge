@@ -12,18 +12,28 @@ AFMBridge is a standalone Swift/Vapor REST API server that wraps Apple's Foundat
 (macOS 26.0+) with industry-standard LLM APIs, enabling seamless integration with existing OpenAI
 and Anthropic client libraries.
 
-**Status:** 🚧 Phase 0 - Foundation Infrastructure (In Progress)
+**Status:** ✅ Phase 1 - MVP Non-streaming OpenAI API (Complete)
 
-## Features (Planned)
+## Features
+
+### Phase 1 (Complete)
 
 - ✅ OpenAI Chat Completions API compatibility (`/v1/chat/completions`)
-- ✅ Anthropic Messages API compatibility (`/v1/messages`)
-- ✅ Server-Sent Events (SSE) streaming for real-time responses
+- ✅ Non-streaming responses
+- ✅ System message support
+- ✅ Environment-based configuration
+- ✅ Comprehensive test coverage (49 tests, 100% passing)
+- ✅ Integration tests with Vapor
+- ✅ Health check endpoint
+
+### Planned
+
+- 🚧 Server-Sent Events (SSE) streaming for real-time responses (Phase 2)
+- 🚧 Anthropic Messages API compatibility (`/v1/messages`) (Phase 3)
+- 🚧 Optional API key authentication (Phase 4)
 - ✅ Reproducible builds with Nix flakes
 - ✅ Docker containerization
-- ✅ Optional API key authentication
 - ✅ Structured logging
-- ✅ Comprehensive test coverage (80%+ target)
 
 ## Requirements
 
@@ -31,6 +41,28 @@ and Anthropic client libraries.
 - **Apple Silicon** (M-series chips)
 - **Nix** with flakes enabled (for development)
 - **Swift 6.0+**
+
+## About Apple FoundationModels
+
+This project wraps Apple's [FoundationModels framework](https://developer.apple.com/documentation/FoundationModels),
+which provides on-device LLM inference for macOS 26.0+ (Tahoe) with Apple Intelligence.
+
+**Key capabilities:**
+
+- On-device inference with privacy protection (data never leaves your Mac)
+- Works offline once models are downloaded
+- Native Swift API with async/await support
+- Streaming responses via `AsyncSequence`
+- Free inference (no API costs)
+
+**API Documentation:**
+
+- [LanguageModelSession](https://developer.apple.com/documentation/foundationmodels/languagemodelsession) -
+Main API for text generation
+- [streamResponse()](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/streamresponse(options:prompt:))
+\- Streaming API returning AsyncSequence
+- [WWDC 2025: Meet the Foundation Models framework](https://developer.apple.com/videos/play/wwdc2025/286/) -
+Official introduction video
 
 ## Quick Start
 
@@ -124,13 +156,18 @@ Configure the server with environment variables:
 ```bash
 HOST=0.0.0.0              # Bind address (default: 127.0.0.1)
 PORT=8080                 # Port number (default: 8080)
-API_KEY=sk-secret         # Optional API key for authentication
-MAX_TOKENS=2048           # Max tokens per request (default: 2048)
-STREAMING_DELAY_MS=20     # Delay between stream chunks (default: 20ms)
+MAX_TOKENS=1024           # Max tokens per request (default: 1024)
 LOG_LEVEL=info            # Log level: trace, debug, info, warning, error (default: info)
 ```
 
-## API Usage (Coming Soon)
+## API Usage
+
+### Health Check
+
+```bash
+curl http://localhost:8080/health
+# Returns: OK
+```
 
 ### OpenAI Compatible Endpoint
 
@@ -143,21 +180,60 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   }'
 ```
 
-### Anthropic Compatible Endpoint
+**With system message:**
 
 ```bash
-curl -X POST http://localhost:8080/v1/messages \
+curl -X POST http://localhost:8080/v1/chat/completions \
   -H "Content-Type: application/json" \
   -d '{
-    "model": "claude-3-5-sonnet",
-    "max_tokens": 1024,
-    "messages": [{"role": "user", "content": "Hello!"}]
+    "model": "gpt-4o",
+    "messages": [
+      {"role": "system", "content": "You are a helpful assistant."},
+      {"role": "user", "content": "Hello!"}
+    ]
   }'
 ```
 
-### Streaming
+**Response format:**
 
-Add `"stream": true` to enable SSE streaming for either endpoint.
+```json
+{
+  "id": "chatcmpl-...",
+  "object": "chat.completion",
+  "created": 1234567890,
+  "model": "gpt-4o",
+  "choices": [
+    {
+      "index": 0,
+      "message": {
+        "role": "assistant",
+        "content": "Hello! How can I assist you today?"
+      },
+      "finish_reason": "stop"
+    }
+  ]
+}
+```
+
+### Anthropic Compatible Endpoint (Coming in Phase 3)
+
+Anthropic Messages API support is planned for Phase 3.
+
+### Streaming (Coming in Phase 2)
+
+Phase 2 will add true Server-Sent Events (SSE) streaming using Apple's native streaming API:
+
+- Uses `LanguageModelSession.streamResponse()` which returns `AsyncSequence` of snapshots
+- **True token-by-token streaming** - not simulated
+- **Lower time-to-first-token** - start seeing output as it generates
+- Converts AFM's snapshot-based streaming to OpenAI/Anthropic delta-based formats
+
+Currently, setting `"stream": true` returns a 400 Bad Request error.
+
+**Learn more:**
+
+- [streamResponse API Documentation](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/streamresponse(options:prompt:))
+- [WWDC 2025: Meet the Foundation Models framework](https://developer.apple.com/videos/play/wwdc2025/286/)
 
 ## Architecture
 
@@ -193,12 +269,18 @@ afmbridge/
 
 ## Roadmap
 
-- [x] **Phase 0:** Project Foundation (In Progress)
+- [x] **Phase 0:** Project Foundation (Complete)
   - [x] Nix build system
   - [x] Development tooling (just, SwiftLint, swift-format)
   - [x] CI/CD pipelines
   - [x] Documentation and standards
-- [ ] **Phase 1:** MVP - Non-streaming OpenAI API
+- [x] **Phase 1:** MVP - Non-streaming OpenAI API (Complete)
+  - [x] OpenAI DTOs (request/response)
+  - [x] FoundationModelService (AFM wrapper)
+  - [x] MessageTranslationService (OpenAI to AFM)
+  - [x] OpenAIController (HTTP endpoint)
+  - [x] ServerConfig (environment variables)
+  - [x] Integration tests and documentation
 - [ ] **Phase 2:** Streaming Support
 - [ ] **Phase 3:** Anthropic API Support
 - [ ] **Phase 4:** Production Hardening
