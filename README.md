@@ -29,8 +29,8 @@ and Anthropic client libraries.
 ### Planned
 
 - 🚧 Server-Sent Events (SSE) streaming for real-time responses (Phase 2)
-- 🚧 Anthropic Messages API compatibility (`/v1/messages`) (Phase 3)
-- 🚧 Optional API key authentication (Phase 4)
+- 🚧 OpenAI-compatible tool calling with AFM's native Tool protocol (Phase 3)
+- 🚧 Anthropic Messages API compatibility (`/v1/messages`) (Phase 4)
 - ✅ Reproducible builds with Nix flakes
 - ✅ Docker containerization
 - ✅ Structured logging
@@ -282,8 +282,9 @@ afmbridge/
   - [x] ServerConfig (environment variables)
   - [x] Integration tests and documentation
 - [ ] **Phase 2:** Streaming Support
-- [ ] **Phase 3:** Anthropic API Support
-- [ ] **Phase 4:** Production Hardening
+- [ ] **Phase 3:** Tool Calling Support
+- [ ] **Phase 4:** Anthropic API Support
+- [ ] **Phase 5:** Production Hardening
 
 See [PLAN.md](PLAN.md) for detailed phase breakdown.
 
