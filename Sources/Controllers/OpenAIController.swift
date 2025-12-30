@@ -300,7 +300,17 @@ public struct OpenAIController: RouteCollection, Sendable {
                 req.logger.error("Streaming error: \(error)")
                 try? await writer.write(.end)
             } catch {
-                req.logger.error("Unexpected streaming error: \(error)")
+                // Check if this is a broken pipe (client disconnected)
+                // This is expected when clients like Continue cancel autocomplete requests
+                let errorDescription = String(describing: error)
+                if errorDescription.contains("Broken pipe")
+                    || errorDescription.contains("errno: 32")
+                {
+                    req.logger.debug(
+                        "Client disconnected during streaming (expected for autocomplete)")
+                } else {
+                    req.logger.error("Unexpected streaming error: \(error)")
+                }
                 try? await writer.write(.end)
             }
         })
