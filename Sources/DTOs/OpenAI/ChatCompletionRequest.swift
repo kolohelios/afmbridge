@@ -25,8 +25,8 @@ public struct ChatCompletionRequest: Content {
     public let toolChoice: ToolChoice?
 
     public init(
-        model: String, messages: [ChatMessage], stream: Bool?, maxTokens: Int?, temperature: Double?,
-        tools: [Tool]? = nil, toolChoice: ToolChoice? = nil
+        model: String, messages: [ChatMessage], stream: Bool?, maxTokens: Int?,
+        temperature: Double?, tools: [Tool]? = nil, toolChoice: ToolChoice? = nil
     ) {
         self.model = model
         self.messages = messages
@@ -155,16 +155,14 @@ public enum ToolChoice: Codable, Sendable, Equatable {
                         debugDescription: "Invalid tool_choice string: \(string)"))
             }
         } else if let object = try? container.decode([String: [String: String]].self),
-            let type = object["type"],
-            let function = type["name"]
+            let type = object["type"], let function = type["name"]
         {
             self = .function(function)
         } else {
             throw DecodingError.typeMismatch(
                 ToolChoice.self,
                 DecodingError.Context(
-                    codingPath: decoder.codingPath,
-                    debugDescription: "Invalid tool_choice format"))
+                    codingPath: decoder.codingPath, debugDescription: "Invalid tool_choice format"))
         }
     }
 
@@ -175,8 +173,7 @@ public enum ToolChoice: Codable, Sendable, Equatable {
         case .auto: try container.encode("auto")
         case .none: try container.encode("none")
         case .required: try container.encode("required")
-        case .function(let name):
-            try container.encode(["type": ["function": ["name": name]]])
+        case .function(let name): try container.encode(["type": ["function": ["name": name]]])
         }
     }
 }

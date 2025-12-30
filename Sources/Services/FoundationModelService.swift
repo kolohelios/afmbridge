@@ -21,18 +21,36 @@ public protocol LLMProvider: Sendable {
     ///   - systemInstructions: Optional system-level instructions for the model
     /// - Returns: AsyncSequence of incremental content deltas
     /// - Throws: LLMError if generation fails
-    func streamRespond(to userPrompt: String, systemInstructions: String?) async throws
-        -> AsyncThrowingStream<String, Error>
+    func streamRespond(
+        to userPrompt: String, systemInstructions: String?
+    ) async throws -> AsyncThrowingStream<String, Error>
+
+    /// Generate a response with tool calling support
+    /// - Parameters:
+    ///   - userPrompt: The user's input message
+    ///   - tools: Array of tool definitions available to the model
+    ///   - toolExecutors: Registry of tool executors for executing called tools
+    ///   - systemInstructions: Optional system-level instructions
+    /// - Returns: Tuple of (response content, tool calls made by the model)
+    /// - Throws: LLMError if generation fails
+    func respondWithTools(
+        to userPrompt: String, tools: [ToolDefinition], toolExecutors: ToolRegistry,
+        systemInstructions: String?
+    ) async throws -> (content: String?, toolCalls: [ToolCall]?)
 }
 
 /// Actor-based service wrapping Apple's LanguageModelSession
 /// Provides thread-safe access to Foundation Models on macOS 26.0+
 @available(macOS 26.0, *) public actor FoundationModelService: LLMProvider {
     private let modelIdentifier: String
+    private let toolFactory: ToolFactory
 
     /// Initialize the service with a specific model identifier
     /// - Parameter modelIdentifier: The identifier of the language model to use
-    public init(modelIdentifier: String = "default") { self.modelIdentifier = modelIdentifier }
+    public init(modelIdentifier: String = "default") {
+        self.modelIdentifier = modelIdentifier
+        self.toolFactory = ToolFactory()
+    }
 
     /// Generate a response using Apple's FoundationModels framework
     /// - Parameters:
@@ -84,9 +102,9 @@ public protocol LLMProvider: Sendable {
     ///   - systemInstructions: Optional system-level instructions for the model
     /// - Returns: AsyncThrowingStream of incremental content deltas
     /// - Throws: LLMError if the model is unavailable or generation fails
-    public func streamRespond(to userPrompt: String, systemInstructions: String?) async throws
-        -> AsyncThrowingStream<String, Error>
-    {
+    public func streamRespond(
+        to userPrompt: String, systemInstructions: String?
+    ) async throws -> AsyncThrowingStream<String, Error> {
         #if canImport(FoundationModels)
             return AsyncThrowingStream { continuation in
                 Task {
@@ -106,9 +124,7 @@ public protocol LLMProvider: Sendable {
                             let delta = String(currentContent.dropFirst(previousContent.count))
                             previousContent = currentContent
 
-                            if !delta.isEmpty {
-                                continuation.yield(delta)
-                            }
+                            if !delta.isEmpty { continuation.yield(delta) }
                         }
 
                         continuation.finish()
@@ -134,6 +150,60 @@ public protocol LLMProvider: Sendable {
                 This application requires macOS 26.0+ with FoundationModels framework.
                 Cannot continue without Apple Foundation Models support.
                 """)
+        #endif
+    }
+
+    /// Generate a response with tool calling support
+    /// - Parameters:
+    ///   - userPrompt: The user's input message
+    ///   - tools: Array of tool definitions available to the model
+    ///   - toolExecutors: Registry of tool executors for executing called tools
+    ///   - systemInstructions: Optional system-level instructions
+    /// - Returns: Tuple of (response content, tool calls made by the model)
+    /// - Throws: LLMError if generation fails
+    public func respondWithTools(
+        to userPrompt: String, tools: [ToolDefinition], toolExecutors: ToolRegistry,
+        systemInstructions: String?
+    ) async throws -> (content: String?, toolCalls: [ToolCall]?) {
+        #if canImport(FoundationModels)
+            // Create AFM Tool instances from definitions
+            var afmTools: [any Tool] = []
+            for toolDef in tools {
+                let tool = await toolFactory.createTool(from: toolDef) { arguments in
+                    // Execute the tool using the registry
+                    try await toolExecutors.execute(tool: toolDef.name, arguments: arguments)
+                }
+                afmTools.append(tool)
+            }
+
+            // Create language model session with tools
+            let session: LanguageModelSession
+            if let systemInstructions = systemInstructions {
+                session = LanguageModelSession { systemInstructions }
+            } else {
+                session = LanguageModelSession()
+            }
+
+            // Generate response with tools
+            do {
+                // For now, respond without tools and return empty tool calls
+                // Full tool calling integration will be completed in ToolCallHandler
+                let response = try await session.respond(to: userPrompt)
+
+                // TODO: Extract tool calls from response when AFM supports it
+                // For now, return content only
+                return (content: response.content, toolCalls: nil)
+            } catch {
+                if error.localizedDescription.contains("filter")
+                    || error.localizedDescription.contains("safety")
+                {
+                    throw LLMError.contentFiltered(error.localizedDescription)
+                }
+                throw LLMError.modelNotAvailable(
+                    "Tool calling failed: \(error.localizedDescription)")
+            }
+        #else
+            fatalError("FoundationModels framework not available")
         #endif
     }
 }

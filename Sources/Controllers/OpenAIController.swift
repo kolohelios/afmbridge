@@ -39,11 +39,9 @@ public struct OpenAIController: RouteCollection, Sendable {
 
         // Extract user prompt
         let userPrompt: String
-        do {
-            userPrompt = try messageTranslator.extractUserPrompt(from: messages)
-        } catch let error as LLMError {
-            throw mapLLMError(error)
-        }
+        do { userPrompt = try messageTranslator.extractUserPrompt(from: messages) } catch let error
+            as LLMError
+        { throw mapLLMError(error) }
 
         // Handle streaming vs non-streaming
         if requestBody.stream == true {
@@ -66,9 +64,7 @@ public struct OpenAIController: RouteCollection, Sendable {
         do {
             generatedContent = try await llmProvider.respond(
                 to: userPrompt, systemInstructions: systemInstructions)
-        } catch let error as LLMError {
-            throw mapLLMError(error)
-        }
+        } catch let error as LLMError { throw mapLLMError(error) }
 
         // Build response
         let responseBody = ChatCompletionResponse(
@@ -158,7 +154,9 @@ public struct OpenAIController: RouteCollection, Sendable {
     }
 
     /// Write a ChatCompletionChunk as SSE data
-    private func writeSSEChunk(_ chunk: ChatCompletionChunk, to writer: any AsyncBodyStreamWriter) async throws {
+    private func writeSSEChunk(
+        _ chunk: ChatCompletionChunk, to writer: any AsyncBodyStreamWriter
+    ) async throws {
         let encoder = JSONEncoder()
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let jsonData = try encoder.encode(chunk)

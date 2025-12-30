@@ -6,8 +6,7 @@ import Models
 #endif
 
 /// Factory for creating dynamic Tool instances from OpenAI tool definitions
-@available(macOS 26.0, *)
-public actor ToolFactory {
+@available(macOS 26.0, *) public actor ToolFactory {
     public init() {}
 
     /// Creates an AFM Tool instance from a ToolDefinition
@@ -29,8 +28,7 @@ public actor ToolFactory {
 
 /// Dynamic wrapper that conforms to AFM's Tool protocol
 #if canImport(FoundationModels)
-    @available(macOS 26.0, *)
-    private struct DynamicTool: Tool, Sendable {
+    @available(macOS 26.0, *) private struct DynamicTool: Tool, Sendable {
         typealias Arguments = String
         typealias Output = String
 
@@ -38,22 +36,18 @@ public actor ToolFactory {
         let executor: @Sendable (String) async throws -> String
 
         init(
-            definition: ToolDefinition, executor: @escaping @Sendable (String) async throws -> String
+            definition: ToolDefinition,
+            executor: @escaping @Sendable (String) async throws -> String
         ) {
             self.definition = definition
             self.executor = executor
         }
 
-        var name: String {
-            definition.name
-        }
+        var name: String { definition.name }
 
-        var description: String {
-            definition.description
-        }
+        var description: String { definition.description }
 
-        @available(macOS 26.0, *)
-        var parameters: GenerationSchema {
+        @available(macOS 26.0, *) var parameters: GenerationSchema {
             // Convert our JSONSchema to FoundationModels' GenerationSchema
             // Encode our schema as JSON and decode it as GenerationSchema
             do {
@@ -69,8 +63,6 @@ public actor ToolFactory {
             }
         }
 
-        func call(arguments: String) async throws -> String {
-            try await executor(arguments)
-        }
+        func call(arguments: String) async throws -> String { try await executor(arguments) }
     }
 #endif

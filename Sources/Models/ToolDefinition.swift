@@ -62,9 +62,7 @@ public struct JSONSchema: Codable, Sendable, Equatable {
     /// The raw schema dictionary
     public let schema: [String: SchemaValue]
 
-    public init(schema: [String: SchemaValue]) {
-        self.schema = schema
-    }
+    public init(schema: [String: SchemaValue]) { self.schema = schema }
 
     /// Convenience initializer for common object schemas
     public init(
@@ -76,9 +74,7 @@ public struct JSONSchema: Codable, Sendable, Equatable {
             schema["properties"] = .object(properties.mapValues { .object($0) })
         }
 
-        if let required = required {
-            schema["required"] = .array(required.map { .string($0) })
-        }
+        if let required = required { schema["required"] = .array(required.map { .string($0) }) }
 
         self.schema = schema
     }
