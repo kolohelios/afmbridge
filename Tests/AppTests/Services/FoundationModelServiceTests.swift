@@ -60,9 +60,7 @@ final class FoundationModelServiceTests: XCTestCase {
         var chunks: [String] = []
         for try await chunk in try await mock.streamRespond(
             to: "Test prompt", systemInstructions: nil)
-        {
-            chunks.append(chunk)
-        }
+        { chunks.append(chunk) }
 
         // Verify chunks combine to form complete response
         let fullResponse = chunks.joined()
@@ -76,9 +74,7 @@ final class FoundationModelServiceTests: XCTestCase {
         var chunks: [String] = []
         for try await chunk in try await mock.streamRespond(
             to: "User question", systemInstructions: "You are helpful.")
-        {
-            chunks.append(chunk)
-        }
+        { chunks.append(chunk) }
 
         XCTAssertEqual(chunks.joined(), "Streaming with context")
         XCTAssertEqual(mock.lastUserPrompt, "User question")
@@ -105,9 +101,7 @@ final class FoundationModelServiceTests: XCTestCase {
         let mock = MockLLMProvider(response: "1234567890")
 
         var previousLength = 0
-        for try await chunk in try await mock.streamRespond(
-            to: "Count", systemInstructions: nil)
-        {
+        for try await chunk in try await mock.streamRespond(to: "Count", systemInstructions: nil) {
             // Each chunk should be incremental (not cumulative)
             XCTAssertGreaterThan(chunk.count, 0, "Chunk should not be empty")
             previousLength += chunk.count
@@ -176,9 +170,9 @@ final class MockLLMProvider: LLMProvider, @unchecked Sendable {
         return response ?? "Default response"
     }
 
-    func streamRespond(to userPrompt: String, systemInstructions: String?) async throws
-        -> AsyncThrowingStream<String, Error>
-    {
+    func streamRespond(
+        to userPrompt: String, systemInstructions: String?
+    ) async throws -> AsyncThrowingStream<String, Error> {
         lastUserPrompt = userPrompt
         lastSystemInstructions = systemInstructions
 
@@ -199,8 +193,9 @@ final class MockLLMProvider: LLMProvider, @unchecked Sendable {
                 var index = content.startIndex
 
                 while index < content.endIndex {
-                    let nextIndex = content.index(
-                        index, offsetBy: chunkSize, limitedBy: content.endIndex) ?? content.endIndex
+                    let nextIndex =
+                        content.index(index, offsetBy: chunkSize, limitedBy: content.endIndex)
+                        ?? content.endIndex
                     let chunk = String(content[index..<nextIndex])
                     continuation.yield(chunk)
                     index = nextIndex
@@ -212,5 +207,18 @@ final class MockLLMProvider: LLMProvider, @unchecked Sendable {
                 continuation.finish()
             }
         }
+    }
+
+    func respondWithTools(
+        to userPrompt: String, tools: [ToolDefinition], toolExecutors: ToolRegistry,
+        systemInstructions: String?
+    ) async throws -> (content: String?, toolCalls: [ToolCall]?) {
+        lastUserPrompt = userPrompt
+        lastSystemInstructions = systemInstructions
+
+        if let error = error { throw error }
+
+        // Mock implementation: just return content, no tool calls
+        return (content: response ?? "Default response", toolCalls: nil)
     }
 }

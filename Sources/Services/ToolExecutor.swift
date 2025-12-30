@@ -20,22 +20,16 @@ public actor ToolRegistry {
     /// - Parameters:
     ///   - name: The name of the tool
     ///   - executor: The executor to handle tool calls
-    public func register(name: String, executor: ToolExecutor) {
-        executors[name] = executor
-    }
+    public func register(name: String, executor: ToolExecutor) { executors[name] = executor }
 
     /// Unregisters a tool executor
     /// - Parameter name: The name of the tool to unregister
-    public func unregister(name: String) {
-        executors.removeValue(forKey: name)
-    }
+    public func unregister(name: String) { executors.removeValue(forKey: name) }
 
     /// Retrieves the executor for a given tool name
     /// - Parameter name: The name of the tool
     /// - Returns: The executor if registered, nil otherwise
-    public func executor(for name: String) -> ToolExecutor? {
-        executors[name]
-    }
+    public func executor(for name: String) -> ToolExecutor? { executors[name] }
 
     /// Executes a tool by name with the given arguments
     /// - Parameters:
@@ -44,28 +38,20 @@ public actor ToolRegistry {
     /// - Returns: JSON string containing the result
     /// - Throws: ToolExecutionError if the tool is not found or execution fails
     public func execute(tool name: String, arguments: String) async throws -> String {
-        guard let executor = executors[name] else {
-            throw ToolExecutionError.toolNotFound(name)
-        }
+        guard let executor = executors[name] else { throw ToolExecutionError.toolNotFound(name) }
 
-        do {
-            return try await executor.execute(arguments: arguments)
-        } catch {
+        do { return try await executor.execute(arguments: arguments) } catch {
             throw ToolExecutionError.executionFailed(name, error)
         }
     }
 
     /// Returns all registered tool names
-    public func registeredTools() -> [String] {
-        Array(executors.keys)
-    }
+    public func registeredTools() -> [String] { Array(executors.keys) }
 
     /// Checks if a tool is registered
     /// - Parameter name: The name of the tool
     /// - Returns: True if the tool is registered
-    public func isRegistered(name: String) -> Bool {
-        executors[name] != nil
-    }
+    public func isRegistered(name: String) -> Bool { executors[name] != nil }
 }
 
 /// Errors that can occur during tool execution
@@ -76,12 +62,10 @@ public enum ToolExecutionError: Error, CustomStringConvertible {
 
     public var description: String {
         switch self {
-        case .toolNotFound(let name):
-            return "Tool not found: \(name)"
+        case .toolNotFound(let name): return "Tool not found: \(name)"
         case .executionFailed(let name, let error):
             return "Tool execution failed for '\(name)': \(error.localizedDescription)"
-        case .invalidArguments(let message):
-            return "Invalid arguments: \(message)"
+        case .invalidArguments(let message): return "Invalid arguments: \(message)"
         }
     }
 }
@@ -94,7 +78,5 @@ public struct ClosureExecutor: ToolExecutor {
         self.closure = closure
     }
 
-    public func execute(arguments: String) async throws -> String {
-        try await closure(arguments)
-    }
+    public func execute(arguments: String) async throws -> String { try await closure(arguments) }
 }
