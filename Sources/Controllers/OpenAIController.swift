@@ -50,15 +50,24 @@ public struct OpenAIController: RouteCollection, Sendable {
                 model: requestBody.model)
         } else {
             return try await handleNonStreamingRequest(
-                req: req, userPrompt: userPrompt, systemInstructions: systemInstructions,
-                model: requestBody.model)
+                req: req, requestBody: requestBody, userPrompt: userPrompt,
+                systemInstructions: systemInstructions, model: requestBody.model)
         }
     }
 
     /// Handle non-streaming chat completion
     private func handleNonStreamingRequest(
-        req: Request, userPrompt: String, systemInstructions: String?, model: String
+        req: Request, requestBody: ChatCompletionRequest, userPrompt: String,
+        systemInstructions: String?, model: String
     ) async throws -> Response {
+
+        // Check if tools are present in the request
+        if let tools = requestBody.tools, !tools.isEmpty {
+            return try await handleToolCallingRequest(
+                req: req, requestBody: requestBody, userPrompt: userPrompt,
+                systemInstructions: systemInstructions, model: model)
+        }
+
         // Generate response
         let generatedContent: String
         do {
@@ -77,6 +86,68 @@ public struct OpenAIController: RouteCollection, Sendable {
             ])
 
         // Encode and return
+        let response = Response(status: .ok)
+        try response.content.encode(responseBody)
+        return response
+    }
+
+    /// Handle tool calling request
+    private func handleToolCallingRequest(
+        req: Request, requestBody: ChatCompletionRequest, userPrompt: String,
+        systemInstructions: String?, model: String
+    ) async throws -> Response {
+        // Convert OpenAI tools to our ToolDefinition format
+        let toolDefinitions: [ToolDefinition] =
+            requestBody.tools?.map { tool in
+                ToolDefinition(
+                    name: tool.function.name, description: tool.function.description ?? "",
+                    parameters: tool.function.parameters ?? JSONSchema(type: "object"))
+            } ?? []
+
+        // Create tool registry (empty - client will execute tools)
+        let toolRegistry = ToolRegistry()
+
+        // Call LLM with tools (single turn - OpenAI pattern)
+        let (content, toolCalls): (String?, [ToolCall]?)
+        do {
+            (content, toolCalls) = try await llmProvider.respondWithTools(
+                to: userPrompt, tools: toolDefinitions, toolExecutors: toolRegistry,
+                systemInstructions: systemInstructions)
+        } catch let error as LLMError { throw mapLLMError(error) }
+
+        // If model made tool calls, return them to client
+        if let toolCalls = toolCalls, !toolCalls.isEmpty {
+            let responseToolCalls = toolCalls.map { call in
+                ResponseToolCall(
+                    id: call.id, function: FunctionCall(name: call.name, arguments: call.arguments))
+            }
+
+            let responseBody = ChatCompletionResponse(
+                id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
+                created: Int(Date().timeIntervalSince1970), model: model,
+                choices: [
+                    ChatCompletionResponse.Choice(
+                        index: 0,
+                        message: ChatMessage(
+                            role: "assistant", content: content, toolCalls: responseToolCalls),
+                        finishReason: "tool_calls")
+                ])
+
+            let response = Response(status: .ok)
+            try response.content.encode(responseBody)
+            return response
+        }
+
+        // No tool calls - return final content
+        let responseBody = ChatCompletionResponse(
+            id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
+            created: Int(Date().timeIntervalSince1970), model: model,
+            choices: [
+                ChatCompletionResponse.Choice(
+                    index: 0, message: ChatMessage(role: "assistant", content: content ?? ""),
+                    finishReason: "stop")
+            ])
+
         let response = Response(status: .ok)
         try response.content.encode(responseBody)
         return response
