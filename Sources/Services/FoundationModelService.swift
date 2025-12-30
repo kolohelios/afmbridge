@@ -14,6 +14,15 @@ public protocol LLMProvider {
     /// - Returns: The model's text response
     /// - Throws: LLMError if generation fails
     func respond(to userPrompt: String, systemInstructions: String?) async throws -> String
+
+    /// Stream a response for the given user prompt with optional system instructions
+    /// - Parameters:
+    ///   - userPrompt: The user's input message
+    ///   - systemInstructions: Optional system-level instructions for the model
+    /// - Returns: AsyncSequence of incremental content deltas
+    /// - Throws: LLMError if generation fails
+    func streamRespond(to userPrompt: String, systemInstructions: String?) async throws
+        -> AsyncThrowingStream<String, Error>
 }
 
 /// Actor-based service wrapping Apple's LanguageModelSession
@@ -59,6 +68,66 @@ public protocol LLMProvider {
         #else
             // FATAL: FoundationModels framework not available
             // This service is useless without AFM - halt and catch fire
+            fatalError(
+                """
+                FATAL: FoundationModels framework is not available.
+                This application requires macOS 26.0+ with FoundationModels framework.
+                Cannot continue without Apple Foundation Models support.
+                """)
+        #endif
+    }
+
+    /// Stream a response using Apple's FoundationModels framework
+    /// Converts cumulative snapshots from streamResponse() to incremental deltas
+    /// - Parameters:
+    ///   - userPrompt: The user's input message
+    ///   - systemInstructions: Optional system-level instructions for the model
+    /// - Returns: AsyncThrowingStream of incremental content deltas
+    /// - Throws: LLMError if the model is unavailable or generation fails
+    public func streamRespond(to userPrompt: String, systemInstructions: String?) async throws
+        -> AsyncThrowingStream<String, Error>
+    {
+        #if canImport(FoundationModels)
+            return AsyncThrowingStream { continuation in
+                Task {
+                    do {
+                        // Create language model session with optional system instructions
+                        let session: LanguageModelSession
+                        if let systemInstructions = systemInstructions {
+                            session = LanguageModelSession { systemInstructions }
+                        } else {
+                            session = LanguageModelSession()
+                        }
+
+                        // Stream response and convert snapshots to deltas
+                        var previousContent = ""
+                        for try await snapshot in try await session.streamResponse(to: userPrompt) {
+                            let currentContent = snapshot.content
+                            let delta = String(currentContent.dropFirst(previousContent.count))
+                            previousContent = currentContent
+
+                            if !delta.isEmpty {
+                                continuation.yield(delta)
+                            }
+                        }
+
+                        continuation.finish()
+                    } catch {
+                        // Handle safety/content filtering errors
+                        if error.localizedDescription.contains("filter")
+                            || error.localizedDescription.contains("safety")
+                        {
+                            continuation.finish(
+                                throwing: LLMError.contentFiltered(error.localizedDescription))
+                        } else {
+                            continuation.finish(
+                                throwing: LLMError.modelNotAvailable(
+                                    "Streaming failed: \(error.localizedDescription)"))
+                        }
+                    }
+                }
+            }
+        #else
             fatalError(
                 """
                 FATAL: FoundationModels framework is not available.
