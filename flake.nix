@@ -22,10 +22,11 @@
         # NOTE: swift-format and swiftlint are NOT included from Nix
         # Reason: They pull in apple-sdk-14.4 which conflicts with Swift 6
         # Install via: brew install swift-format swiftlint
-        # Python with SDK testing packages
-        pythonWithPackages = pkgs.python3.withPackages (ps: with ps; [
-          openai
-          anthropic
+
+        # Python with SDK packages
+        pythonWithPackages = pkgs.python3.withPackages (ps: [
+          ps.openai
+          ps.anthropic
         ]);
 
         devTools = with pkgs; [
@@ -43,16 +44,13 @@
 
           # Direnv for automatic env loading
           direnv
-
-          # Python with SDK packages for integration tests
-          pythonWithPackages
         ];
 
       in
       {
         # Development shell
         devShells.default = pkgs.mkShell {
-          buildInputs = devTools;
+          buildInputs = devTools ++ [ pythonWithPackages ];
 
           shellHook = ''
             # Override Nix SDK paths to use system Xcode SDK
@@ -72,6 +70,9 @@
             # This ensures Swift Package Manager uses the correct toolchain for C/C++ dependencies
             export CC=/usr/bin/clang
             export CXX=/usr/bin/clang++
+
+            # Set PYTHONPATH to nix-provided packages (openai, anthropic)
+            export PYTHONPATH="${pythonWithPackages}/${pythonWithPackages.sitePackages}:$PYTHONPATH"
 
             echo "🚀 AFMBridge Development Environment"
             echo ""
