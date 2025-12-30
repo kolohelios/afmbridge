@@ -155,4 +155,113 @@ final class OpenAIStreamingTests: XCTestCase {
         XCTAssertFalse(finalJson.contains("\"content\""))
         XCTAssertTrue(finalJson.contains("\"finish_reason\":\"stop\""))
     }
+
+    // MARK: - Tool Calling Streaming Tests
+
+    func testDeltaEncodingWithToolCalls() throws {
+        let functionCall = DeltaFunctionCall(name: "get_weather", arguments: nil)
+        let toolCall = DeltaToolCall(
+            index: 0, id: "call_123", type: "function", function: functionCall)
+        let delta = Delta(role: nil, content: nil, toolCalls: [toolCall])
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(delta)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertTrue(json.contains("\"tool_calls\""))
+        XCTAssertTrue(json.contains("\"index\":0"))
+        XCTAssertTrue(json.contains("\"id\":\"call_123\""))
+        XCTAssertTrue(json.contains("\"type\":\"function\""))
+        XCTAssertTrue(json.contains("\"name\":\"get_weather\""))
+    }
+
+    func testDeltaFunctionCallEncoding() throws {
+        let functionCall = DeltaFunctionCall(name: "get_weather", arguments: "{\"location\":")
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(functionCall)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertTrue(json.contains("\"name\":\"get_weather\""))
+        XCTAssertTrue(json.contains("\"arguments\""))
+    }
+
+    func testDeltaFunctionCallWithOnlyArguments() throws {
+        let functionCall = DeltaFunctionCall(name: nil, arguments: "\"Boston\"}")
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(functionCall)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertFalse(json.contains("\"name\""))
+        XCTAssertTrue(json.contains("\"arguments\""))
+    }
+
+    func testDeltaToolCallRoundTrip() throws {
+        let functionCall = DeltaFunctionCall(name: "calculate", arguments: "{\"x\":5,\"y\":3}")
+        let original = DeltaToolCall(
+            index: 0, id: "call_abc123", type: "function", function: functionCall)
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(original)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(DeltaToolCall.self, from: data)
+
+        XCTAssertEqual(decoded.index, 0)
+        XCTAssertEqual(decoded.id, "call_abc123")
+        XCTAssertEqual(decoded.type, "function")
+        XCTAssertEqual(decoded.function?.name, "calculate")
+        XCTAssertEqual(decoded.function?.arguments, "{\"x\":5,\"y\":3}")
+    }
+
+    func testStreamingToolCallSequence() throws {
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+
+        // First chunk: role + tool call start (id, type, function name)
+        let firstFunction = DeltaFunctionCall(name: "get_weather", arguments: nil)
+        let firstToolCall = DeltaToolCall(
+            index: 0, id: "call_123", type: "function", function: firstFunction)
+        let firstDelta = Delta(role: "assistant", content: nil, toolCalls: [firstToolCall])
+        let firstChoice = ChatCompletionChunk.ChunkChoice(
+            index: 0, delta: firstDelta, finishReason: nil)
+        let firstChunk = ChatCompletionChunk(
+            id: "chatcmpl-123", object: "chat.completion.chunk", created: 1_677_652_288,
+            model: "gpt-4", choices: [firstChoice])
+
+        let firstData = try encoder.encode(firstChunk)
+        let firstJson = String(data: firstData, encoding: .utf8)!
+        XCTAssertTrue(firstJson.contains("\"role\":\"assistant\""))
+        XCTAssertTrue(firstJson.contains("\"tool_calls\""))
+        XCTAssertTrue(firstJson.contains("\"id\":\"call_123\""))
+        XCTAssertTrue(firstJson.contains("\"name\":\"get_weather\""))
+
+        // Middle chunk: incremental arguments
+        let middleFunction = DeltaFunctionCall(name: nil, arguments: "{\"location\":")
+        let middleToolCall = DeltaToolCall(index: 0, id: nil, type: nil, function: middleFunction)
+        let middleDelta = Delta(role: nil, content: nil, toolCalls: [middleToolCall])
+        let middleChoice = ChatCompletionChunk.ChunkChoice(
+            index: 0, delta: middleDelta, finishReason: nil)
+        let middleChunk = ChatCompletionChunk(
+            id: "chatcmpl-123", object: "chat.completion.chunk", created: 1_677_652_288,
+            model: "gpt-4", choices: [middleChoice])
+
+        let middleData = try encoder.encode(middleChunk)
+        let middleJson = String(data: middleData, encoding: .utf8)!
+        XCTAssertTrue(middleJson.contains("\"arguments\""))
+
+        // Final chunk: finish with tool_calls reason
+        let finalDelta = Delta(role: nil, content: nil, toolCalls: nil)
+        let finalChoice = ChatCompletionChunk.ChunkChoice(
+            index: 0, delta: finalDelta, finishReason: "tool_calls")
+        let finalChunk = ChatCompletionChunk(
+            id: "chatcmpl-123", object: "chat.completion.chunk", created: 1_677_652_288,
+            model: "gpt-4", choices: [finalChoice])
+
+        let finalData = try encoder.encode(finalChunk)
+        let finalJson = String(data: finalData, encoding: .utf8)!
+        XCTAssertTrue(finalJson.contains("\"finish_reason\":\"tool_calls\""))
+    }
 }
