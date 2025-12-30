@@ -30,6 +30,15 @@ public struct OpenAIController: RouteCollection, Sendable {
         // Decode request
         let requestBody = try req.content.decode(ChatCompletionRequest.self)
 
+        // Check if this is a tool result submission (continuation after tool execution)
+        let hasToolMessages = requestBody.messages.contains { $0.role == "tool" }
+
+        if hasToolMessages {
+            // This is a continuation with tool results - handle multi-turn conversation
+            return try await handleToolResultSubmission(
+                req: req, requestBody: requestBody, model: requestBody.model)
+        }
+
         // Convert messages to translation service format
         // For now, unwrap content with empty string (Phase 3 will add full tool support)
         let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
@@ -148,6 +157,73 @@ public struct OpenAIController: RouteCollection, Sendable {
                     finishReason: "stop")
             ])
 
+        let response = Response(status: .ok)
+        try response.content.encode(responseBody)
+        return response
+    }
+
+    /// Handle tool result submission (continuation after client executes tools)
+    private func handleToolResultSubmission(
+        req: Request, requestBody: ChatCompletionRequest, model: String
+    ) async throws -> Response {
+        // Extract system instructions
+        let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
+        let systemInstructions = messageTranslator.extractSystemInstructions(from: messages)
+
+        // Build conversation history prompt from all messages
+        var conversationParts: [String] = []
+
+        for message in requestBody.messages {
+            switch message.role {
+            case "user":
+                if let content = message.content { conversationParts.append("User: \(content)") }
+
+            case "assistant":
+                if let toolCalls = message.toolCalls, !toolCalls.isEmpty {
+                    // Assistant made tool calls
+                    let toolCallsDesc = toolCalls.map {
+                        "[\($0.function.name)(\($0.function.arguments))]"
+                    }.joined(separator: ", ")
+                    conversationParts.append("Assistant called tools: \(toolCallsDesc)")
+                } else if let content = message.content {
+                    // Assistant text response
+                    conversationParts.append("Assistant: \(content)")
+                }
+
+            case "tool":
+                // Tool result
+                if let content = message.content, let name = message.name {
+                    conversationParts.append("Tool '\(name)' returned: \(content)")
+                }
+
+            default: break
+            }
+        }
+
+        // Add final prompt asking for response based on tool results
+        conversationParts.append(
+            "Based on the tool results above, provide your final response to the user.")
+
+        let fullPrompt = conversationParts.joined(separator: "\n")
+
+        // Generate final response
+        let generatedContent: String
+        do {
+            generatedContent = try await llmProvider.respond(
+                to: fullPrompt, systemInstructions: systemInstructions)
+        } catch let error as LLMError { throw mapLLMError(error) }
+
+        // Build response
+        let responseBody = ChatCompletionResponse(
+            id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
+            created: Int(Date().timeIntervalSince1970), model: model,
+            choices: [
+                ChatCompletionResponse.Choice(
+                    index: 0, message: ChatMessage(role: "assistant", content: generatedContent),
+                    finishReason: "stop")
+            ])
+
+        // Encode and return
         let response = Response(status: .ok)
         try response.content.encode(responseBody)
         return response
