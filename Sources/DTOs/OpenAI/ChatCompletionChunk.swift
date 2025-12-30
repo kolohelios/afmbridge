@@ -60,8 +60,56 @@ public struct Delta: Codable, Sendable {
     /// Incremental content to append to the message
     public let content: String?
 
-    public init(role: String?, content: String?) {
+    /// Incremental tool calls (for streaming tool call responses)
+    public let toolCalls: [DeltaToolCall]?
+
+    public init(role: String?, content: String?, toolCalls: [DeltaToolCall]? = nil) {
         self.role = role
         self.content = content
+        self.toolCalls = toolCalls
+    }
+
+    enum CodingKeys: String, CodingKey {
+        case role
+        case content
+        case toolCalls = "tool_calls"
+    }
+}
+
+/// Incremental tool call delta for streaming
+public struct DeltaToolCall: Codable, Sendable {
+    /// Index of this tool call in the array
+    public let index: Int
+
+    /// Unique identifier for this tool call (present in first chunk)
+    public let id: String?
+
+    /// The type of tool (present in first chunk)
+    public let type: String?
+
+    /// Incremental function call data
+    public let function: DeltaFunctionCall?
+
+    public init(
+        index: Int, id: String? = nil, type: String? = nil, function: DeltaFunctionCall? = nil
+    ) {
+        self.index = index
+        self.id = id
+        self.type = type
+        self.function = function
+    }
+}
+
+/// Incremental function call delta for streaming
+public struct DeltaFunctionCall: Codable, Sendable {
+    /// The name of the function (present in first chunk)
+    public let name: String?
+
+    /// Incremental arguments to append (JSON string fragment)
+    public let arguments: String?
+
+    public init(name: String? = nil, arguments: String? = nil) {
+        self.name = name
+        self.arguments = arguments
     }
 }
