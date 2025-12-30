@@ -6,7 +6,7 @@ import Models
 #endif
 
 /// Protocol for language model providers to enable testability
-public protocol LLMProvider {
+public protocol LLMProvider: Sendable {
     /// Generate a response for the given user prompt with optional system instructions
     /// - Parameters:
     ///   - userPrompt: The user's input message

@@ -2,7 +2,7 @@ import Foundation
 import Models
 
 /// Service for translating between OpenAI message format and Apple FoundationModels format
-public struct MessageTranslationService {
+public struct MessageTranslationService: Sendable {
     public init() {}
 
     /// Extracts system instructions from OpenAI messages
