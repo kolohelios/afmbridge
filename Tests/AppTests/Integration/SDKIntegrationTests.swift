@@ -1,5 +1,10 @@
+import Configuration
 import Foundation
+import Services
+import Vapor
 import XCTest
+
+@testable import App
 
 /// SDK Integration Tests - OpenAI and Anthropic SDK compatibility
 ///
@@ -7,12 +12,13 @@ import XCTest
 /// They require:
 /// - macOS 26.0+ with FoundationModels framework
 /// - Python 3.8+ with openai and anthropic packages installed
-/// - AFMBridge server running locally
 ///
-/// Tests are automatically skipped in CI or when requirements aren't met.
+/// The test automatically starts an AFMBridge server on localhost:8080 before running.
 @available(macOS 14.0, *) final class SDKIntegrationTests: XCTestCase {
 
     // MARK: - Setup
+
+    private var app: Application?
 
     override class func setUp() {
         super.setUp()
@@ -23,6 +29,39 @@ import XCTest
             print("   Install: pip install openai anthropic")
             print("   Or use: nix develop (includes packages)")
         }
+    }
+
+    override func setUp() async throws {
+        try await super.setUp()
+
+        // Fail hard if requirements not met - SDK contract validation is critical
+        guard #available(macOS 26.0, *) else {
+            XCTFail("SDK tests require macOS 26.0+ for FoundationModels")
+            return
+        }
+
+        guard Self.canRunSDKTests() else {
+            XCTFail("SDK tests require Python packages (openai, anthropic)")
+            return
+        }
+
+        // Create and configure application with real FoundationModelService
+        app = try await Application.make(.testing)
+        let provider = FoundationModelService()
+        try await configure(app!, llmProvider: provider)
+
+        // Start server on port 8080 in background
+        try await app!.startup()
+
+        // Give server time to start
+        try await Task.sleep(nanoseconds: 500_000_000)  // 0.5 seconds
+    }
+
+    override func tearDown() async throws {
+        // Shut down server
+        try await app?.asyncShutdown()
+        app = nil
+        try await super.tearDown()
     }
 
     // MARK: - Helper Methods
@@ -75,8 +114,10 @@ import XCTest
 
     /// Run Python SDK test script
     private func runPythonSDKTest(script: String) throws {
-        guard Self.canRunSDKTests() else {
-            throw XCTSkip("SDK integration tests require macOS 26.0+ and local environment")
+        // Requirements already checked in setUp() - fail hard if not met
+        guard #available(macOS 26.0, *) else {
+            XCTFail("SDK tests require macOS 26.0+ for FoundationModels")
+            return
         }
 
         // Locate test script relative to current file
