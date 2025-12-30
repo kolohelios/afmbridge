@@ -94,12 +94,12 @@ final class Phase1IntegrationTests: XCTestCase {
         }
     }
 
-    func testChatCompletions_withStreamingRequest_returns400() async throws {
+    func testChatCompletions_withStreamingRequest_returnsSSE() async throws {
         // Given: A configured Vapor application
         let app = try await makeTestApp()
         defer { Task { try await app.asyncShutdown() } }
 
-        // When: Sending a streaming request (not supported in Phase 1)
+        // When: Sending a streaming request (supported in Phase 2)
         let request = ChatCompletionRequest(
             model: "gpt-4o", messages: [ChatMessage(role: "user", content: "Hello!")], stream: true,
             maxTokens: nil, temperature: nil)
@@ -108,8 +108,16 @@ final class Phase1IntegrationTests: XCTestCase {
             .POST, "v1/chat/completions",
             beforeRequest: { req async throws in try req.content.encode(request) }
         ) { res async throws in
-            // Then: Should return 400 Bad Request
-            XCTAssertEqual(res.status, .badRequest)
+            // Then: Should return 200 OK with SSE content type
+            XCTAssertEqual(res.status, .ok)
+            XCTAssertEqual(res.headers.contentType?.type, "text")
+            XCTAssertEqual(res.headers.contentType?.subType, "event-stream")
+            XCTAssertEqual(res.headers.cacheControl?.noCache, true)
+
+            // Verify SSE formatted response
+            let body = res.body.string
+            XCTAssertTrue(body.contains("data: "))
+            XCTAssertTrue(body.contains("[DONE]"))
         }
     }
 
