@@ -96,4 +96,176 @@ final class OpenAITests: XCTestCase {
         XCTAssertEqual(decoded.choices[0].message.content, "Test response")
         XCTAssertEqual(decoded.choices[0].finishReason, "stop")
     }
+
+    // MARK: - Tool Calling Tests
+
+    func testToolDefinitionDecoding() throws {
+        let json = """
+            {
+                "type": "function",
+                "function": {
+                    "name": "get_weather",
+                    "description": "Get the current weather in a location",
+                    "parameters": {
+                        "type": "object",
+                        "properties": {
+                            "location": {
+                                "type": "string",
+                                "description": "The city and state, e.g. San Francisco, CA"
+                            },
+                            "unit": {
+                                "type": "string",
+                                "enum": ["celsius", "fahrenheit"]
+                            }
+                        },
+                        "required": ["location"]
+                    }
+                }
+            }
+            """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let tool = try decoder.decode(Tool.self, from: data)
+
+        XCTAssertEqual(tool.type, "function")
+        XCTAssertEqual(tool.function.name, "get_weather")
+        XCTAssertEqual(tool.function.description, "Get the current weather in a location")
+        XCTAssertNotNil(tool.function.parameters)
+    }
+
+    func testChatCompletionRequestWithTools() throws {
+        let json = """
+            {
+                "model": "gpt-4",
+                "messages": [
+                    {"role": "user", "content": "What's the weather in Boston?"}
+                ],
+                "tools": [
+                    {
+                        "type": "function",
+                        "function": {
+                            "name": "get_weather",
+                            "description": "Get weather",
+                            "parameters": {
+                                "type": "object",
+                                "properties": {
+                                    "location": {"type": "string"}
+                                },
+                                "required": ["location"]
+                            }
+                        }
+                    }
+                ],
+                "tool_choice": "auto"
+            }
+            """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let request = try decoder.decode(ChatCompletionRequest.self, from: data)
+
+        XCTAssertEqual(request.model, "gpt-4")
+        XCTAssertEqual(request.messages.count, 1)
+        XCTAssertNotNil(request.tools)
+        XCTAssertEqual(request.tools?.count, 1)
+        XCTAssertEqual(request.tools?[0].function.name, "get_weather")
+        XCTAssertEqual(request.toolChoice, .auto)
+    }
+
+    func testToolChoiceAuto() throws {
+        let json = "\"auto\""
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let toolChoice = try decoder.decode(ToolChoice.self, from: data)
+
+        XCTAssertEqual(toolChoice, .auto)
+    }
+
+    func testToolChoiceNone() throws {
+        let json = "\"none\""
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let toolChoice = try decoder.decode(ToolChoice.self, from: data)
+
+        XCTAssertEqual(toolChoice, .none)
+    }
+
+    func testToolChoiceRequired() throws {
+        let json = "\"required\""
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let toolChoice = try decoder.decode(ToolChoice.self, from: data)
+
+        XCTAssertEqual(toolChoice, .required)
+    }
+
+    func testToolCallResponse() throws {
+        let functionCall = FunctionCall(
+            name: "get_weather", arguments: "{\"location\":\"Boston, MA\"}")
+        let toolCall = ResponseToolCall(id: "call_123", function: functionCall)
+        let message = ChatMessage(role: "assistant", content: nil, toolCalls: [toolCall])
+        let choice = ChatCompletionResponse.Choice(
+            index: 0, message: message, finishReason: "tool_calls")
+        let response = ChatCompletionResponse(
+            id: "chatcmpl-123", object: "chat.completion", created: 1_677_652_288, model: "gpt-4",
+            choices: [choice])
+
+        let encoder = JSONEncoder()
+        encoder.keyEncodingStrategy = .convertToSnakeCase
+        let data = try encoder.encode(response)
+        let json = String(data: data, encoding: .utf8)!
+
+        XCTAssertTrue(json.contains("\"tool_calls\""))
+        XCTAssertTrue(json.contains("\"call_123\""))
+        XCTAssertTrue(json.contains("\"get_weather\""))
+        XCTAssertTrue(json.contains("\"finish_reason\":\"tool_calls\""))
+    }
+
+    func testToolCallResponseRoundTrip() throws {
+        let functionCall = FunctionCall(
+            name: "get_weather", arguments: "{\"location\":\"Boston, MA\",\"unit\":\"fahrenheit\"}")
+        let toolCall = ResponseToolCall(id: "call_456", function: functionCall)
+        let message = ChatMessage(role: "assistant", content: nil, toolCalls: [toolCall])
+        let choice = ChatCompletionResponse.Choice(
+            index: 0, message: message, finishReason: "tool_calls")
+        let original = ChatCompletionResponse(
+            id: "chatcmpl-789", object: "chat.completion", created: 1_677_652_288, model: "gpt-4",
+            choices: [choice])
+
+        let encoder = JSONEncoder()
+        let data = try encoder.encode(original)
+
+        let decoder = JSONDecoder()
+        let decoded = try decoder.decode(ChatCompletionResponse.self, from: data)
+
+        XCTAssertEqual(decoded.id, original.id)
+        XCTAssertEqual(decoded.choices.count, 1)
+        XCTAssertEqual(decoded.choices[0].message.role, "assistant")
+        XCTAssertNil(decoded.choices[0].message.content)
+        XCTAssertEqual(decoded.choices[0].message.toolCalls?.count, 1)
+        XCTAssertEqual(decoded.choices[0].message.toolCalls?[0].id, "call_456")
+        XCTAssertEqual(decoded.choices[0].message.toolCalls?[0].function.name, "get_weather")
+        XCTAssertEqual(decoded.choices[0].finishReason, "tool_calls")
+    }
+
+    func testToolMessageWithResult() throws {
+        let json = """
+            {
+                "role": "tool",
+                "content": "The weather in Boston is 72°F and sunny.",
+                "tool_call_id": "call_123",
+                "name": "get_weather"
+            }
+            """
+
+        let data = json.data(using: .utf8)!
+        let decoder = JSONDecoder()
+        let message = try decoder.decode(ChatMessage.self, from: data)
+
+        XCTAssertEqual(message.role, "tool")
+        XCTAssertEqual(message.content, "The weather in Boston is 72°F and sunny.")
+        XCTAssertEqual(message.toolCallId, "call_123")
+        XCTAssertEqual(message.name, "get_weather")
+    }
 }

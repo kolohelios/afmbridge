@@ -63,7 +63,8 @@ final class Phase1IntegrationTests: XCTestCase {
             XCTAssertEqual(response.choices.count, 1)
             XCTAssertEqual(response.choices[0].index, 0)
             XCTAssertEqual(response.choices[0].message.role, "assistant")
-            XCTAssertFalse(response.choices[0].message.content.isEmpty)
+            XCTAssertNotNil(response.choices[0].message.content)
+            XCTAssertFalse(response.choices[0].message.content?.isEmpty ?? true)
             XCTAssertEqual(response.choices[0].finishReason, "stop")
         }
     }
@@ -90,7 +91,8 @@ final class Phase1IntegrationTests: XCTestCase {
 
             let response = try res.content.decode(ChatCompletionResponse.self)
             XCTAssertEqual(response.choices.count, 1)
-            XCTAssertFalse(response.choices[0].message.content.isEmpty)
+            XCTAssertNotNil(response.choices[0].message.content)
+            XCTAssertFalse(response.choices[0].message.content?.isEmpty ?? true)
         }
     }
 

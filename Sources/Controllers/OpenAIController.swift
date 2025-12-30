@@ -31,7 +31,8 @@ public struct OpenAIController: RouteCollection, Sendable {
         let requestBody = try req.content.decode(ChatCompletionRequest.self)
 
         // Convert messages to translation service format
-        let messages = requestBody.messages.map { (role: $0.role, content: $0.content) }
+        // For now, unwrap content with empty string (Phase 3 will add full tool support)
+        let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
 
         // Extract system instructions
         let systemInstructions = messageTranslator.extractSystemInstructions(from: messages)
