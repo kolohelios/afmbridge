@@ -34,7 +34,14 @@ import XCTest
     override func setUp() async throws {
         try await super.setUp()
 
-        // Fail hard if requirements not met - SDK contract validation is critical
+        // Skip SDK tests in CI - Apple Intelligence not available in GitHub Actions
+        // FoundationModels requires Apple Intelligence to be enabled, which needs
+        // user interaction and cannot be automated in CI environments
+        if ProcessInfo.processInfo.environment["CI"] != nil {
+            throw XCTSkip("SDK tests require Apple Intelligence, unavailable in CI")
+        }
+
+        // Fail hard if requirements not met locally - SDK contract validation is critical
         guard #available(macOS 26.0, *) else {
             XCTFail("SDK tests require macOS 26.0+ for FoundationModels")
             return
