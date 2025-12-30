@@ -150,7 +150,7 @@ final class FoundationModelServiceTests: XCTestCase {
 // MARK: - Mock Implementation
 
 /// Mock LLMProvider for testing
-class MockLLMProvider: LLMProvider {
+final class MockLLMProvider: LLMProvider, @unchecked Sendable {
     private let response: String?
     private let error: Error?
 
