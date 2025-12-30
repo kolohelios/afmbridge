@@ -12,7 +12,7 @@ AFMBridge is a standalone Swift/Vapor REST API server that wraps Apple's Foundat
 (macOS 26.0+) with industry-standard LLM APIs, enabling seamless integration with existing OpenAI
 and Anthropic client libraries.
 
-**Status:** ✅ Phase 1 - MVP Non-streaming OpenAI API (Complete)
+**Status:** ✅ Phase 3 - Tool Calling Support (Complete)
 
 ## Features
 
@@ -26,14 +26,35 @@ and Anthropic client libraries.
 - ✅ Integration tests with Vapor
 - ✅ Health check endpoint
 
-### Planned
+### Phase 2 (Complete)
 
-- 🚧 Server-Sent Events (SSE) streaming for real-time responses (Phase 2)
-- 🚧 OpenAI-compatible tool calling with AFM's native Tool protocol (Phase 3)
-- 🚧 Anthropic Messages API compatibility (`/v1/messages`) (Phase 4)
+- ✅ Server-Sent Events (SSE) streaming for real-time responses
+- ✅ True token-by-token streaming via FoundationModels AsyncSequence
+- ✅ OpenAI-compatible streaming format with delta chunks
+- ✅ Lower time-to-first-token for better UX
+
+### Phase 3 (Complete)
+
+- ✅ OpenAI-compatible tool calling with AFM's native Tool protocol
+- ✅ Tool definition schema using JSON Schema
+- ✅ Multi-turn conversation with client-side tool execution
+- ✅ Streaming DTOs for tool calls (automatic fallback to non-streaming)
+- ✅ Complete test coverage (100 tests, 100% passing)
+
+### Infrastructure
+
 - ✅ Reproducible builds with Nix flakes
 - ✅ Docker containerization
 - ✅ Structured logging
+- ✅ Automated CI/CD with GitHub Actions
+
+### Planned
+
+- 🚧 Anthropic Messages API compatibility (`/v1/messages`) (Phase 4)
+- 🚧 Anthropic-specific features and tool calling
+- 🚧 API key authentication
+- 🚧 Rate limiting and request throttling
+- 🚧 Request logging and metrics
 
 ## Requirements
 
@@ -215,25 +236,52 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 }
 ```
 
-### Anthropic Compatible Endpoint (Coming in Phase 3)
+### Streaming Support (Phase 2 - Complete)
 
-Anthropic Messages API support is planned for Phase 3.
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "Write a haiku"}],
+    "stream": true
+  }'
+```
 
-### Streaming (Coming in Phase 2)
+Returns Server-Sent Events with true token-by-token streaming using Apple's native
+`LanguageModelSession.streamResponse()` API.
 
-Phase 2 will add true Server-Sent Events (SSE) streaming using Apple's native streaming API:
+### Tool Calling Support (Phase 3 - Complete)
 
-- Uses `LanguageModelSession.streamResponse()` which returns `AsyncSequence` of snapshots
-- **True token-by-token streaming** - not simulated
-- **Lower time-to-first-token** - start seeing output as it generates
-- Converts AFM's snapshot-based streaming to OpenAI/Anthropic delta-based formats
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-4o",
+    "messages": [{"role": "user", "content": "What is the weather in Boston?"}],
+    "tools": [{
+      "type": "function",
+      "function": {
+        "name": "get_weather",
+        "description": "Get weather for a location",
+        "parameters": {
+          "type": "object",
+          "properties": {
+            "location": {"type": "string"}
+          },
+          "required": ["location"]
+        }
+      }
+    }]
+  }'
+```
 
-Currently, setting `"stream": true` returns a 400 Bad Request error.
+Returns tool calls with `finish_reason: "tool_calls"`. Client executes tools and submits results
+in a follow-up request. See [API.md](API.md) for complete tool calling documentation.
 
-**Learn more:**
+### Anthropic Compatible Endpoint (Coming in Phase 4)
 
-- [streamResponse API Documentation](https://developer.apple.com/documentation/foundationmodels/languagemodelsession/streamresponse(options:prompt:))
-- [WWDC 2025: Meet the Foundation Models framework](https://developer.apple.com/videos/play/wwdc2025/286/)
+Anthropic Messages API support is planned for Phase 4.
 
 ## Architecture
 
@@ -281,10 +329,25 @@ afmbridge/
   - [x] OpenAIController (HTTP endpoint)
   - [x] ServerConfig (environment variables)
   - [x] Integration tests and documentation
-- [ ] **Phase 2:** Streaming Support
-- [ ] **Phase 3:** Tool Calling Support
+- [x] **Phase 2:** Streaming Support (Complete)
+  - [x] Server-Sent Events (SSE) implementation
+  - [x] Streaming DTOs and chunked responses
+  - [x] True token-by-token streaming via AFM AsyncSequence
+  - [x] Streaming integration tests
+- [x] **Phase 3:** Tool Calling Support (Complete)
+  - [x] OpenAI-compatible tool calling DTOs
+  - [x] Tool definition schema with JSON Schema
+  - [x] Multi-turn conversation with tool results
+  - [x] Client-side tool execution pattern
+  - [x] Comprehensive tool calling tests (100 total tests)
 - [ ] **Phase 4:** Anthropic API Support
+  - [ ] Anthropic Messages API DTOs
+  - [ ] Anthropic-compatible tool calling
+  - [ ] Streaming with Anthropic format
 - [ ] **Phase 5:** Production Hardening
+  - [ ] API key authentication
+  - [ ] Rate limiting
+  - [ ] Request logging and metrics
 
 See [PLAN.md](PLAN.md) for detailed phase breakdown.
 
