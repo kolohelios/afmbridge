@@ -54,6 +54,14 @@ public struct OpenAIController: RouteCollection, Sendable {
 
         // Handle streaming vs non-streaming
         if requestBody.stream == true {
+            // Note: Streaming with tools is not yet supported by AFM
+            // If tools are present, fall back to non-streaming response
+            if let tools = requestBody.tools, !tools.isEmpty {
+                return try await handleNonStreamingRequest(
+                    req: req, requestBody: requestBody, userPrompt: userPrompt,
+                    systemInstructions: systemInstructions, model: requestBody.model)
+            }
+
             return try await handleStreamingRequest(
                 req: req, userPrompt: userPrompt, systemInstructions: systemInstructions,
                 model: requestBody.model)
