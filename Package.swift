@@ -30,7 +30,8 @@ let package = Package(
                 .product(name: "Vapor", package: "vapor"),
                 .product(name: "Logging", package: "swift-log"),
                 "Controllers",
-                "Configuration"
+                "Configuration",
+                "Middleware"
             ],
             path: "Sources/App"
         ),
