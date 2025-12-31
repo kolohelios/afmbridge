@@ -102,13 +102,27 @@ public struct OpenAIController: RouteCollection, Sendable {
             throw mapLLMError(error)
         }
 
+        // Strip prefix for autocomplete requests
+        // LLMs tend to repeat the "Code before cursor" prefix even when instructed not to
+        // This makes completions unusable in Continue since it would duplicate existing code
+        let finalContent: String
+        let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
+        if isAutocompleteRequest(messages: messages, stream: requestBody.stream),
+            let userMessage = messages.first(where: { $0.role == "user" }),
+            let prefix = extractPrefix(from: userMessage.content)
+        {
+            finalContent = stripPrefixIfNeeded(generatedContent, prefix: prefix)
+        } else {
+            finalContent = generatedContent
+        }
+
         // Build response
         let responseBody = ChatCompletionResponse(
             id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
             created: Int(Date().timeIntervalSince1970), model: model,
             choices: [
                 ChatCompletionResponse.Choice(
-                    index: 0, message: ChatMessage(role: "assistant", content: generatedContent),
+                    index: 0, message: ChatMessage(role: "assistant", content: finalContent),
                     finishReason: "stop")
             ])
 
@@ -393,6 +407,82 @@ public struct OpenAIController: RouteCollection, Sendable {
         let jsonData = try encoder.encode(chunk)
         let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
         _ = try await writer.write(.buffer(.init(string: "data: \(jsonString)\n\n")))
+    }
+
+    /// Check if request matches autocomplete pattern
+    /// Autocomplete requests have specific structure:
+    /// - Single user message with "Code before cursor:" and "Code after cursor:"
+    /// - Non-streaming
+    private func isAutocompleteRequest(
+        messages: [(role: String, content: String)], stream: Bool?
+    ) -> Bool {
+        // Must be non-streaming
+        guard stream != true else { return false }
+
+        // Must have exactly one user message (after filtering system messages)
+        let userMessages = messages.filter { $0.role == "user" }
+        guard userMessages.count == 1 else { return false }
+
+        let content = userMessages[0].content
+        return content.contains("Code before cursor:") && content.contains("Code after cursor:")
+    }
+
+    /// Extract prefix from autocomplete prompt
+    /// Returns nil if pattern doesn't match
+    private func extractPrefix(from content: String) -> String? {
+        // Pattern: "Code before cursor:\n{prefix}\n\nCode after cursor:"
+        guard let beforeRange = content.range(of: "Code before cursor:\n") else { return nil }
+
+        let afterStart = content.index(beforeRange.upperBound, offsetBy: 0)
+        guard let afterRange = content[afterStart...].range(of: "\n\nCode after cursor:") else {
+            return nil
+        }
+
+        return String(content[afterStart..<afterRange.lowerBound])
+    }
+
+    /// Strip prefix from completion if it's an exact match
+    /// Returns original content if no match or if stripping would remove everything
+    private func stripPrefixIfNeeded(_ content: String, prefix: String) -> String {
+        var workingContent = content
+
+        // First, strip markdown code fences if present
+        // AFM sometimes wraps code completions in ```language\n...\n```
+        if workingContent.hasPrefix("```") {
+            // Find first newline after opening fence
+            if let firstNewline = workingContent.firstIndex(of: "\n") {
+                let afterFence = workingContent.index(after: firstNewline)
+                // Find closing fence
+                if let closingFence = workingContent[afterFence...].range(of: "\n```") {
+                    // Extract content between fences
+                    workingContent = String(workingContent[afterFence..<closingFence.lowerBound])
+                }
+            }
+        }
+
+        // Try exact prefix match first
+        if workingContent.hasPrefix(prefix) {
+            let stripped = String(workingContent.dropFirst(prefix.count))
+            return stripped.isEmpty ? workingContent : stripped
+        }
+
+        // If exact match fails, try finding overlap with suffix of prefix
+        // LLMs often skip leading comments/whitespace but echo the actual code
+        // Find the longest suffix of prefix that matches the start of content
+        let prefixLines = prefix.split(separator: "\n", omittingEmptySubsequences: false)
+
+        // Try progressively smaller suffixes of the prefix (skip leading lines)
+        for skipCount in 0..<prefixLines.count {
+            let suffix = prefixLines.dropFirst(skipCount).joined(separator: "\n")
+            if !suffix.isEmpty && workingContent.hasPrefix(suffix) {
+                let stripped = String(workingContent.dropFirst(suffix.count))
+                // Only return stripped version if we found a meaningful overlap (at least 10 chars)
+                if suffix.count >= 10 && !stripped.isEmpty { return stripped }
+            }
+        }
+
+        // No overlap found - return content as-is
+        return workingContent
     }
 
     /// Map LLMError to Abort error
