@@ -90,7 +90,17 @@ public struct OpenAIController: RouteCollection, Sendable {
         do {
             generatedContent = try await llmProvider.respond(
                 to: userPrompt, systemInstructions: systemInstructions)
-        } catch let error as LLMError { throw mapLLMError(error) }
+        } catch let error as LLMError {
+            // Log error with context for debugging
+            req.logger.error(
+                "Non-streaming generation error",
+                metadata: [
+                    "error": .string("\(error)"), "prompt_length": .string("\(userPrompt.count)"),
+                    "prompt_preview": .string(String(userPrompt.prefix(100))),
+                    "has_system_instructions": .string("\(systemInstructions != nil)"),
+                ])
+            throw mapLLMError(error)
+        }
 
         // Build response
         let responseBody = ChatCompletionResponse(
@@ -130,7 +140,17 @@ public struct OpenAIController: RouteCollection, Sendable {
             (content, toolCalls) = try await llmProvider.respondWithTools(
                 to: userPrompt, tools: toolDefinitions, toolExecutors: toolRegistry,
                 systemInstructions: systemInstructions)
-        } catch let error as LLMError { throw mapLLMError(error) }
+        } catch let error as LLMError {
+            // Log error with context for debugging
+            req.logger.error(
+                "Tool calling generation error",
+                metadata: [
+                    "error": .string("\(error)"), "prompt_length": .string("\(userPrompt.count)"),
+                    "prompt_preview": .string(String(userPrompt.prefix(100))),
+                    "tools_count": .string("\(toolDefinitions.count)"),
+                ])
+            throw mapLLMError(error)
+        }
 
         // If model made tool calls, return them to client
         if let toolCalls = toolCalls, !toolCalls.isEmpty {
@@ -219,7 +239,17 @@ public struct OpenAIController: RouteCollection, Sendable {
         do {
             generatedContent = try await llmProvider.respond(
                 to: fullPrompt, systemInstructions: systemInstructions)
-        } catch let error as LLMError { throw mapLLMError(error) }
+        } catch let error as LLMError {
+            // Log error with context for debugging
+            req.logger.error(
+                "Tool result response error",
+                metadata: [
+                    "error": .string("\(error)"), "prompt_length": .string("\(fullPrompt.count)"),
+                    "prompt_preview": .string(String(fullPrompt.prefix(100))),
+                    "message_count": .string("\(requestBody.messages.count)"),
+                ])
+            throw mapLLMError(error)
+        }
 
         // Build response
         let responseBody = ChatCompletionResponse(
@@ -330,11 +360,23 @@ public struct OpenAIController: RouteCollection, Sendable {
                 try await writer.write(.end)
 
             } catch let error as LLMError {
-                // Send error and end stream
-                req.logger.error("Streaming error: \(error)")
+                // Log streaming error with context for debugging
+                req.logger.error(
+                    "Streaming error",
+                    metadata: [
+                        "error": .string("\(error)"),
+                        "prompt_length": .string("\(userPrompt.count)"),
+                        "prompt_preview": .string(String(userPrompt.prefix(100))),
+                        "has_system_instructions": .string("\(systemInstructions != nil)"),
+                    ])
                 try? await writer.write(.end)
             } catch {
-                req.logger.error("Unexpected streaming error: \(error)")
+                req.logger.error(
+                    "Unexpected streaming error",
+                    metadata: [
+                        "error": .string("\(error)"),
+                        "prompt_length": .string("\(userPrompt.count)"),
+                    ])
                 try? await writer.write(.end)
             }
         })
