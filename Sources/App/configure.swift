@@ -1,4 +1,5 @@
 import Configuration
+import Middleware
 import Services
 import Vapor
 
@@ -12,7 +13,7 @@ func configure(_ app: Application, llmProvider: LLMProvider? = nil) async throws
     // Configure middleware
     app.middleware = .init()
     app.middleware.use(ErrorMiddleware.default(environment: app.environment))
-    app.middleware.use(RouteLoggingMiddleware(logLevel: .info))
+    app.middleware.use(MetricsMiddleware())
 
     // Configure server
     app.http.server.configuration.hostname = config.hostname
@@ -20,14 +21,4 @@ func configure(_ app: Application, llmProvider: LLMProvider? = nil) async throws
 
     // Register routes (optionally with test provider)
     try routes(app, llmProvider: llmProvider)
-}
-
-/// Middleware to log incoming requests
-struct RouteLoggingMiddleware: AsyncMiddleware {
-    let logLevel: Logger.Level
-
-    func respond(to request: Request, chainingTo next: AsyncResponder) async throws -> Response {
-        request.logger.log(level: logLevel, "\(request.method) \(request.url.path)")
-        return try await next.respond(to: request)
-    }
 }

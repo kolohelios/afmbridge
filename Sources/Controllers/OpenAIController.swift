@@ -253,6 +253,10 @@ public struct OpenAIController: RouteCollection, Sendable {
         // Stream the response
         let provider = self.llmProvider
         response.body = .init(asyncStream: { writer in
+            let streamStart = Date()
+            var firstTokenTime: Date?
+            var totalChars = 0
+
             do {
                 // Get streaming response from LLM
                 let stream = try await provider.streamRespond(
@@ -270,6 +274,17 @@ public struct OpenAIController: RouteCollection, Sendable {
 
                 // Stream content chunks
                 for try await contentDelta in stream {
+                    // Track TTFT on first content chunk
+                    if firstTokenTime == nil {
+                        firstTokenTime = Date()
+                        let ttft = firstTokenTime!.timeIntervalSince(streamStart)
+                        req.logger.info(
+                            "First token received",
+                            metadata: ["ttft_ms": .string(String(format: "%.2f", ttft * 1000))])
+                    }
+
+                    totalChars += contentDelta.count
+
                     let chunk = ChatCompletionChunk(
                         id: id, object: "chat.completion.chunk", created: created, model: model,
                         choices: [
@@ -291,6 +306,25 @@ public struct OpenAIController: RouteCollection, Sendable {
 
                 // Send [DONE] marker
                 _ = try await writer.write(.buffer(.init(string: "data: [DONE]\n\n")))
+
+                // Log final streaming metrics
+                let totalDuration = Date().timeIntervalSince(streamStart)
+                let outputTokens = max(1, totalChars / 4)
+                let tokensPerSecond =
+                    totalDuration > 0 ? Int(Double(outputTokens) / totalDuration) : 0
+
+                req.logger.info(
+                    "Streaming completed",
+                    metadata: [
+                        "duration_ms": .string(String(format: "%.2f", totalDuration * 1000)),
+                        "ttft_ms": .string(
+                            String(
+                                format: "%.2f",
+                                (firstTokenTime?.timeIntervalSince(streamStart) ?? 0) * 1000)),
+                        "output_tokens": .string("\(outputTokens)"),
+                        "tokens_per_second": .string("\(tokensPerSecond)"),
+                        "chars_streamed": .string("\(totalChars)"),
+                    ])
 
                 // Signal end of stream
                 try await writer.write(.end)
