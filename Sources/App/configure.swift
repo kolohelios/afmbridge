@@ -20,5 +20,5 @@ func configure(_ app: Application, llmProvider: LLMProvider? = nil) async throws
     app.http.server.configuration.port = config.port
 
     // Register routes (optionally with test provider)
-    try routes(app, llmProvider: llmProvider)
+    try await routes(app, llmProvider: llmProvider)
 }

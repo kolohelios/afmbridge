@@ -56,6 +56,18 @@ public protocol LLMProvider: Sendable {
         self.toolFactory = ToolFactory()
     }
 
+    /// Pre-warm a session to eliminate first-request penalty
+    /// Call this during app startup to prepare for first autocomplete request
+    public func preWarm() {
+        #if canImport(FoundationModels)
+            // Most autocomplete requests don't use system instructions, so pre-warm without them
+            if cachedSession == nil {
+                cachedSession = LanguageModelSession()
+                cachedSystemInstructions = nil
+            }
+        #endif
+    }
+
     /// Get or create a session with the specified system instructions
     /// Caches sessions to reduce TTFT on subsequent requests with same system instructions
     /// Abandons busy sessions (creates new one) - effectively cancelling stale autocomplete requests
