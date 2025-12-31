@@ -2,7 +2,7 @@ import Controllers
 import Services
 import Vapor
 
-func routes(_ app: Application, llmProvider: LLMProvider? = nil) throws {
+func routes(_ app: Application, llmProvider: LLMProvider? = nil) async throws {
     // Health check endpoint
     app.get("health") { req async throws -> String in "OK" }
 
@@ -12,7 +12,10 @@ func routes(_ app: Application, llmProvider: LLMProvider? = nil) throws {
         provider = llmProvider
     } else {
         if #available(macOS 26.0, *) {
-            provider = FoundationModelService()
+            let service = FoundationModelService()
+            // Pre-warm session to eliminate first-request penalty
+            await service.preWarm()
+            provider = service
         } else {
             throw Abort(.serviceUnavailable, reason: "FoundationModels requires macOS 26.0+")
         }
