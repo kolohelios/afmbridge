@@ -27,6 +27,18 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-spm-
 
+      # Cache Homebrew packages (swift-format, swiftlint)
+      # Saves ~8 seconds per CI run
+      - name: Cache Homebrew packages
+        uses: actions/cache@v4
+        with:
+          path: |
+            /opt/homebrew/Cellar/swift-format
+            /opt/homebrew/Cellar/swiftlint
+          key: ${{ runner.os }}-homebrew-${{ hashFiles('.github/workflows/ci.yml') }}
+          restore-keys: |
+            ${{ runner.os }}-homebrew-
+
       # Install Swift tooling via Homebrew (not Nix)
       # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
       # System Xcode provides Swift 6.1.2 on macos-15
