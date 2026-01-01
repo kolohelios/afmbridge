@@ -45,8 +45,14 @@ public protocol LLMProvider: Sendable {
     private let modelIdentifier: String
     private let toolFactory: ToolFactory
 
-    // Session cache to avoid recreation overhead (improves TTFT by ~50%)
-    private var cachedSession: LanguageModelSession?
+    // Session pool for concurrent requests (avoids queueing)
+    // Pool size of 3 allows multiple simultaneous autocomplete requests
+    private var sessionPool: [LanguageModelSession] = []
+    private let maxPoolSize = 3
+
+    // Track system instructions for pool sessions
+    // For simplicity, pool only contains sessions without system instructions
+    // Sessions with system instructions are created on-demand and not pooled
     private var cachedSystemInstructions: String?
 
     /// Initialize the service with a specific model identifier
@@ -56,43 +62,44 @@ public protocol LLMProvider: Sendable {
         self.toolFactory = ToolFactory()
     }
 
-    /// Pre-warm a session to eliminate first-request penalty
-    /// Call this during app startup to prepare for first autocomplete request
+    /// Pre-warm session pool to eliminate first-request penalty
+    /// Call this during app startup to prepare for concurrent autocomplete requests
     public func preWarm() {
         #if canImport(FoundationModels)
-            // Most autocomplete requests don't use system instructions, so pre-warm without them
-            if cachedSession == nil {
-                cachedSession = LanguageModelSession()
-                cachedSystemInstructions = nil
+            // Pre-warm the pool with idle sessions (no system instructions)
+            // This allows concurrent autocomplete requests without queueing
+            while sessionPool.count < maxPoolSize {
+                sessionPool.append(LanguageModelSession())
             }
+            cachedSystemInstructions = nil
         #endif
     }
 
     /// Get or create a session with the specified system instructions
-    /// Caches sessions to reduce TTFT on subsequent requests with same system instructions
-    /// Abandons busy sessions (creates new one) - effectively cancelling stale autocomplete requests
+    /// Uses session pool for requests without system instructions (typical autocomplete)
+    /// Creates on-demand sessions for requests with system instructions
     private func getSession(systemInstructions: String?) -> LanguageModelSession {
         #if canImport(FoundationModels)
-            // Reuse cached session if system instructions match AND it's not busy
-            // If it IS busy, we abandon it and create a new one (effectively cancelling the old request)
-            if cachedSystemInstructions == systemInstructions, let session = cachedSession,
-                !session.isResponding
-            {
-                return session
-            }
-
-            // Create new session
-            let session: LanguageModelSession
+            // Requests with system instructions get a dedicated session (not pooled)
             if let systemInstructions = systemInstructions {
-                session = LanguageModelSession { systemInstructions }
-            } else {
-                session = LanguageModelSession()
+                return LanguageModelSession { systemInstructions }
             }
 
-            // Replace cache with new session (abandons any busy session)
-            cachedSession = session
-            cachedSystemInstructions = systemInstructions
-            return session
+            // For requests without system instructions (typical autocomplete):
+            // Try to find an idle session from the pool
+            if let idleSession = sessionPool.first(where: { !$0.isResponding }) {
+                return idleSession
+            }
+
+            // All pool sessions are busy - create a new one
+            let newSession = LanguageModelSession()
+
+            // Add to pool if not yet at capacity
+            if sessionPool.count < maxPoolSize {
+                sessionPool.append(newSession)
+            }
+
+            return newSession
         #else
             fatalError("FoundationModels framework not available")
         #endif
