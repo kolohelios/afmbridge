@@ -169,13 +169,52 @@ final class AnthropicControllerTests: XCTestCase {
 
     // MARK: - Streaming Tests
 
-    func testStreaming_notYetImplemented() {
-        // Streaming support will be added in the next phase
-        // For now, just verify the request structure supports it
+    func testStreaming_requestStructure() {
         let request = MessageRequest(
             model: "claude-opus-4-5-20251101", maxTokens: 1024,
             messages: [Message(role: "user", text: "Hello")], stream: true)
 
         XCTAssertEqual(request.stream, true)
+        XCTAssertEqual(request.model, "claude-opus-4-5-20251101")
+    }
+
+    func testStreaming_withSystemParameter() {
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [Message(role: "user", text: "Hello")],
+            system: "You are a helpful assistant.", stream: true)
+
+        XCTAssertEqual(request.stream, true)
+        XCTAssertEqual(request.system, "You are a helpful assistant.")
+    }
+
+    func testStreaming_eventSequence() {
+        // Test that stream events follow Anthropic specification
+        // Events should be: message_start, content_block_start, content_block_delta(s),
+        // content_block_stop, message_delta, message_stop
+
+        // This is verified through integration tests
+        // Unit test just verifies event types exist
+        let events: [StreamEvent] = [
+            .messageStart(
+                MessageStartEvent(
+                    message: MessageSnapshot(
+                        id: "msg_test", content: [], model: "claude-opus-4-5-20251101",
+                        stopReason: nil, usage: Usage(inputTokens: 10, outputTokens: 0)))),
+            .contentBlockStart(
+                ContentBlockStartEvent(
+                    index: 0, contentBlock: ContentBlockStart(type: "text"))),
+            .contentBlockDelta(
+                ContentBlockDeltaEvent(
+                    index: 0, delta: ContentDelta(type: "text_delta", text: "Hello"))),
+            .contentBlockStop(ContentBlockStopEvent(index: 0)),
+            .messageDelta(
+                MessageDeltaEvent(
+                    delta: MessageDelta(stopReason: .endTurn),
+                    usage: UsageDelta(outputTokens: 5))),
+            .messageStop(MessageStopEvent()),
+        ]
+
+        XCTAssertEqual(events.count, 6)
     }
 }
