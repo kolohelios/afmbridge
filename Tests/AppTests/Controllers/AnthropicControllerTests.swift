@@ -202,16 +202,14 @@ final class AnthropicControllerTests: XCTestCase {
                         id: "msg_test", content: [], model: "claude-opus-4-5-20251101",
                         stopReason: nil, usage: Usage(inputTokens: 10, outputTokens: 0)))),
             .contentBlockStart(
-                ContentBlockStartEvent(
-                    index: 0, contentBlock: ContentBlockStart(type: "text"))),
+                ContentBlockStartEvent(index: 0, contentBlock: ContentBlockStart(type: "text"))),
             .contentBlockDelta(
                 ContentBlockDeltaEvent(
                     index: 0, delta: ContentDelta(type: "text_delta", text: "Hello"))),
             .contentBlockStop(ContentBlockStopEvent(index: 0)),
             .messageDelta(
                 MessageDeltaEvent(
-                    delta: MessageDelta(stopReason: .endTurn),
-                    usage: UsageDelta(outputTokens: 5))),
+                    delta: MessageDelta(stopReason: .endTurn), usage: UsageDelta(outputTokens: 5))),
             .messageStop(MessageStopEvent()),
         ]
 

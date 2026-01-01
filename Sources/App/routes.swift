@@ -24,4 +24,8 @@ func routes(_ app: Application, llmProvider: LLMProvider? = nil) async throws {
     // Register OpenAI-compatible controller
     let openAIController = OpenAIController(llmProvider: provider)
     try app.register(collection: openAIController)
+
+    // Register Anthropic-compatible controller
+    let anthropicController = AnthropicController(llmProvider: provider)
+    try app.register(collection: anthropicController)
 }

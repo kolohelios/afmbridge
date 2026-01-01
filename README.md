@@ -12,7 +12,7 @@ AFMBridge is a standalone Swift/Vapor REST API server that wraps Apple's Foundat
 (macOS 26.0+) with industry-standard LLM APIs, enabling seamless integration with existing OpenAI
 and Anthropic client libraries.
 
-**Status:** ✅ Phase 3 - Tool Calling Support (Complete)
+**Status:** 🚧 Phase 4 - Anthropic API Support (In Progress)
 
 ## Features
 
@@ -41,6 +41,15 @@ and Anthropic client libraries.
 - ✅ Streaming DTOs for tool calls (automatic fallback to non-streaming)
 - ✅ Complete test coverage (100 tests, 100% passing)
 
+### Phase 4 (In Progress)
+
+- ✅ Anthropic Messages API compatibility (`/v1/messages`)
+- ✅ Non-streaming message responses
+- ✅ Server-Sent Events (SSE) streaming with Anthropic format
+- ✅ System parameter support
+- ✅ Content blocks support
+- 🚧 Anthropic-compatible tool calling
+
 ### Infrastructure
 
 - ✅ Reproducible builds with Nix flakes
@@ -50,11 +59,10 @@ and Anthropic client libraries.
 
 ### Planned
 
-- 🚧 Anthropic Messages API compatibility (`/v1/messages`) (Phase 4)
-- 🚧 Anthropic-specific features and tool calling
-- 🚧 API key authentication
-- 🚧 Rate limiting and request throttling
-- 🚧 Request logging and metrics
+- 🚧 Anthropic-compatible tool calling (Phase 4)
+- 🚧 API key authentication (Phase 5)
+- 🚧 Rate limiting and request throttling (Phase 5)
+- 🚧 Request logging and metrics (Phase 5)
 
 ## Requirements
 
@@ -279,9 +287,76 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 Returns tool calls with `finish_reason: "tool_calls"`. Client executes tools and submits results
 in a follow-up request. See [API.md](API.md) for complete tool calling documentation.
 
-### Anthropic Compatible Endpoint (Coming in Phase 4)
+### Anthropic Compatible Endpoint (Phase 4 - In Progress)
 
-Anthropic Messages API support is planned for Phase 4.
+**Basic message:**
+
+```bash
+curl -X POST http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-opus-4-5-20251101",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+**With system parameter:**
+
+```bash
+curl -X POST http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-opus-4-5-20251101",
+    "max_tokens": 1024,
+    "system": "You are a helpful assistant.",
+    "messages": [{"role": "user", "content": "Hello!"}]
+  }'
+```
+
+**Response format:**
+
+```json
+{
+  "id": "msg-...",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-opus-4-5-20251101",
+  "content": [
+    {
+      "type": "text",
+      "text": "Hello! How can I assist you today?"
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 10,
+    "output_tokens": 12
+  }
+}
+```
+
+**Streaming support:**
+
+```bash
+curl -X POST http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-opus-4-5-20251101",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "Write a haiku"}],
+    "stream": true
+  }'
+```
+
+Returns Server-Sent Events with Anthropic's 6-event streaming format:
+
+1. `message_start` - Message metadata with input token count
+2. `content_block_start` - Start of text content block
+3. `content_block_delta` - Streaming text deltas (multiple events)
+4. `content_block_stop` - End of content block
+5. `message_delta` - Final message metadata with stop reason
+6. `message_stop` - Stream completion
 
 ## Architecture
 
@@ -340,10 +415,13 @@ afmbridge/
   - [x] Multi-turn conversation with tool results
   - [x] Client-side tool execution pattern
   - [x] Comprehensive tool calling tests (100 total tests)
-- [ ] **Phase 4:** Anthropic API Support
-  - [ ] Anthropic Messages API DTOs
+- [ ] **Phase 4:** Anthropic API Support (In Progress)
+  - [x] Anthropic Messages API DTOs
+  - [x] Non-streaming message support
+  - [x] Server-Sent Events streaming with Anthropic format
+  - [x] System parameter and content blocks
+  - [x] Integration tests for Anthropic API
   - [ ] Anthropic-compatible tool calling
-  - [ ] Streaming with Anthropic format
 - [ ] **Phase 5:** Production Hardening
   - [ ] API key authentication
   - [ ] Rate limiting
