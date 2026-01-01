@@ -43,7 +43,9 @@ jobs:
       # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
       # System Xcode provides Swift 6.1.2 on macos-15
       - name: Install Swift tools
-        run: brew install swift-format swiftlint
+        run: |
+          brew install swift-format swiftlint
+          brew link --overwrite swift-format swiftlint || true
 
       - name: Cache Swift build artifacts
         uses: actions/cache@v4
