@@ -44,13 +44,20 @@ public struct OpenAIController: RouteCollection, Sendable {
         let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
 
         // Extract system instructions
-        let systemInstructions = messageTranslator.extractSystemInstructions(from: messages)
+        var systemInstructions = messageTranslator.extractSystemInstructions(from: messages)
 
         // Extract user prompt
         let userPrompt: String
         do { userPrompt = try messageTranslator.extractUserPrompt(from: messages) } catch let error
             as LLMError
         { throw mapLLMError(error) }
+
+        // Optimize system instructions for autocomplete requests
+        // Verbose instructions increase prompt size and slow down inference
+        // The user prompt already provides sufficient context via "Code before/after cursor"
+        if isAutocompleteRequest(messages: messages, stream: requestBody.stream) {
+            systemInstructions = nil  // Remove system instructions entirely for autocomplete
+        }
 
         // Handle streaming vs non-streaming
         if requestBody.stream == true {

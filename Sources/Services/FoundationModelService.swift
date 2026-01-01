@@ -68,9 +68,7 @@ public protocol LLMProvider: Sendable {
         #if canImport(FoundationModels)
             // Pre-warm the pool with idle sessions (no system instructions)
             // This allows concurrent autocomplete requests without queueing
-            while sessionPool.count < maxPoolSize {
-                sessionPool.append(LanguageModelSession())
-            }
+            while sessionPool.count < maxPoolSize { sessionPool.append(LanguageModelSession()) }
             cachedSystemInstructions = nil
         #endif
     }
@@ -95,9 +93,7 @@ public protocol LLMProvider: Sendable {
             let newSession = LanguageModelSession()
 
             // Add to pool if not yet at capacity
-            if sessionPool.count < maxPoolSize {
-                sessionPool.append(newSession)
-            }
+            if sessionPool.count < maxPoolSize { sessionPool.append(newSession) }
 
             return newSession
         #else
