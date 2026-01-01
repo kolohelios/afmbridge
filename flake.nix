@@ -71,6 +71,11 @@
             export CC=/usr/bin/clang
             export CXX=/usr/bin/clang++
 
+            # Add Homebrew to PATH for swift-format and swiftlint
+            # These tools are installed via Homebrew (not Nix) to avoid Swift 6 conflicts
+            # Add both ARM (/opt/homebrew) and Intel (/usr/local) locations
+            export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
+
             # Set PYTHONPATH to nix-provided packages (openai, anthropic)
             export PYTHONPATH="${pythonWithPackages}/${pythonWithPackages.sitePackages}:$PYTHONPATH"
 
