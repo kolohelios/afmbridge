@@ -92,11 +92,27 @@ public struct OpenAIController: RouteCollection, Sendable {
                 systemInstructions: systemInstructions, model: model)
         }
 
+        // Convert messages for autocomplete detection
+        let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
+        let isAutocomplete = isAutocompleteRequest(messages: messages, stream: false)
+
         // Generate response
+        // For autocomplete, use streaming internally for better performance (faster TTFT)
+        // Collect all deltas and return the final result to maintain API compatibility
         let generatedContent: String
         do {
-            generatedContent = try await llmProvider.respond(
-                to: userPrompt, systemInstructions: systemInstructions)
+            if isAutocomplete {
+                // Use internal streaming for autocomplete
+                var accumulatedContent = ""
+                let stream = try await llmProvider.streamRespond(
+                    to: userPrompt, systemInstructions: systemInstructions)
+                for try await delta in stream { accumulatedContent += delta }
+                generatedContent = accumulatedContent
+            } else {
+                // Use standard non-streaming for other requests
+                generatedContent = try await llmProvider.respond(
+                    to: userPrompt, systemInstructions: systemInstructions)
+            }
         } catch let error as LLMError {
             // Log error with context for debugging
             req.logger.error(
@@ -113,9 +129,7 @@ public struct OpenAIController: RouteCollection, Sendable {
         // LLMs tend to repeat the "Code before cursor" prefix even when instructed not to
         // This makes completions unusable in Continue since it would duplicate existing code
         let finalContent: String
-        let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
-        if isAutocompleteRequest(messages: messages, stream: requestBody.stream),
-            let userMessage = messages.first(where: { $0.role == "user" }),
+        if isAutocomplete, let userMessage = messages.first(where: { $0.role == "user" }),
             let prefix = extractPrefix(from: userMessage.content)
         {
             finalContent = stripPrefixIfNeeded(generatedContent, prefix: prefix)
