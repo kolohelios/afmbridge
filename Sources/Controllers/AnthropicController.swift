@@ -90,8 +90,7 @@ public struct AnthropicController: RouteCollection, Sendable {
 
     /// Handle streaming message creation with SSE
     private func handleStreamingRequest(
-        req: Request, requestBody: MessageRequest, userPrompt: String,
-        systemInstructions: String?
+        req: Request, requestBody: MessageRequest, userPrompt: String, systemInstructions: String?
     ) async throws -> Response {
         let id = "msg_\(UUID().uuidString)"
 
@@ -122,13 +121,16 @@ public struct AnthropicController: RouteCollection, Sendable {
                             usage: Usage(
                                 inputTokens: self.estimateTokens(
                                     userPrompt + (systemInstructions ?? "")), outputTokens: 0))))
-                try await self.writeAnthropicSSE(messageStartEvent, eventName: "message_start", to: writer)
+                try await self.writeAnthropicSSE(
+                    messageStartEvent, eventName: "message_start", to: writer)
 
                 // Event 2: content_block_start
                 let blockStartEvent = StreamEvent.contentBlockStart(
                     ContentBlockStartEvent(
-                        index: contentIndex, contentBlock: ContentBlockStart(type: "text", text: "")))
-                try await self.writeAnthropicSSE(blockStartEvent, eventName: "content_block_start", to: writer)
+                        index: contentIndex, contentBlock: ContentBlockStart(type: "text", text: "")
+                    ))
+                try await self.writeAnthropicSSE(
+                    blockStartEvent, eventName: "content_block_start", to: writer)
 
                 // Event 3: content_block_delta (multiple)
                 var accumulatedText = ""
@@ -149,24 +151,28 @@ public struct AnthropicController: RouteCollection, Sendable {
                         ContentBlockDeltaEvent(
                             index: contentIndex,
                             delta: ContentDelta(type: "text_delta", text: contentDelta)))
-                    try await self.writeAnthropicSSE(deltaEvent, eventName: "content_block_delta", to: writer)
+                    try await self.writeAnthropicSSE(
+                        deltaEvent, eventName: "content_block_delta", to: writer)
                 }
 
                 // Event 4: content_block_stop
                 let blockStopEvent = StreamEvent.contentBlockStop(
                     ContentBlockStopEvent(index: contentIndex))
-                try await self.writeAnthropicSSE(blockStopEvent, eventName: "content_block_stop", to: writer)
+                try await self.writeAnthropicSSE(
+                    blockStopEvent, eventName: "content_block_stop", to: writer)
 
                 // Event 5: message_delta
                 let messageDeltaEvent = StreamEvent.messageDelta(
                     MessageDeltaEvent(
                         delta: MessageDelta(stopReason: .endTurn),
                         usage: UsageDelta(outputTokens: self.estimateTokens(accumulatedText))))
-                try await self.writeAnthropicSSE(messageDeltaEvent, eventName: "message_delta", to: writer)
+                try await self.writeAnthropicSSE(
+                    messageDeltaEvent, eventName: "message_delta", to: writer)
 
                 // Event 6: message_stop
                 let messageStopEvent = StreamEvent.messageStop(MessageStopEvent())
-                try await self.writeAnthropicSSE(messageStopEvent, eventName: "message_stop", to: writer)
+                try await self.writeAnthropicSSE(
+                    messageStopEvent, eventName: "message_stop", to: writer)
 
                 // Log final streaming metrics
                 let totalDuration = Date().timeIntervalSince(streamStart)
@@ -203,14 +209,16 @@ public struct AnthropicController: RouteCollection, Sendable {
 
                 // Send error event
                 let errorEvent = StreamEvent.error(
-                    ErrorEvent(error: ErrorDetail(type: "error", message: error.localizedDescription)))
+                    ErrorEvent(
+                        error: ErrorDetail(type: "error", message: error.localizedDescription)))
                 try? await self.writeAnthropicSSE(errorEvent, eventName: "error", to: writer)
                 try? await writer.write(.end)
             } catch {
                 req.logger.error(
                     "Unexpected streaming error",
                     metadata: [
-                        "error": .string("\(error)"), "prompt_length": .string("\(userPrompt.count)"),
+                        "error": .string("\(error)"),
+                        "prompt_length": .string("\(userPrompt.count)"),
                     ])
                 try? await writer.write(.end)
             }
@@ -227,7 +235,8 @@ public struct AnthropicController: RouteCollection, Sendable {
         encoder.keyEncodingStrategy = .convertToSnakeCase
         let jsonData = try encoder.encode(event)
         let jsonString = String(data: jsonData, encoding: .utf8) ?? "{}"
-        _ = try await writer.write(.buffer(.init(string: "event: \(eventName)\ndata: \(jsonString)\n\n")))
+        _ = try await writer.write(
+            .buffer(.init(string: "event: \(eventName)\ndata: \(jsonString)\n\n")))
     }
 
     /// Map LLM errors to appropriate HTTP errors
