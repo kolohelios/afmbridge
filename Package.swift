@@ -79,7 +79,9 @@ let package = Package(
             name: "Middleware",
             dependencies: [
                 .product(name: "Vapor", package: "vapor"),
-                "Configuration"
+                "Configuration",
+                "DTOs",
+                "Models"
             ],
             path: "Sources/Middleware"
         ),
