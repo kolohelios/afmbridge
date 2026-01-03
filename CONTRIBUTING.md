@@ -13,8 +13,12 @@ Thank you for your interest in contributing to AFMBridge
 ### Getting Started
 
 ```bash
-# Clone the repository
+# Clone the repository (using git)
 git clone git@github.com:kolohelios/afmbridge.git
+cd afmbridge
+
+# Or using Jujutsu (recommended for stacked PRs)
+jj git clone git@github.com:kolohelios/afmbridge.git
 cd afmbridge
 
 # Enter development environment (using direnv)
@@ -126,6 +130,17 @@ swift test --filter TestName
 5. Push and create a pull request
 6. Ensure CI passes
 7. Address review feedback
+
+## AI Agent Contributors
+
+If you're an AI agent (Claude Code, Cursor, GitHub Copilot, etc.) working on this project,
+please see [AGENTS.md](AGENTS.md) for specific collaboration standards including:
+
+- Version control with Jujutsu (jj)
+- Atomic commit requirements
+- Quality gate expectations
+- Task management with beads
+- Session completion checklist
 
 ## Getting Help
 
