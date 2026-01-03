@@ -2,6 +2,9 @@ import Vapor
 
 /// Server configuration loaded from environment variables
 public struct ServerConfig {
+    /// Apple Foundation Models identifier for the on-device model
+    public static let afmModelIdentifier = "apple-afm-on-device"
+
     /// Server hostname (default: "127.0.0.1")
     public let hostname: String
 

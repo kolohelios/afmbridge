@@ -59,7 +59,7 @@ final class Phase1IntegrationTests: XCTestCase {
 
             let response = try res.content.decode(ChatCompletionResponse.self)
             XCTAssertEqual(response.object, "chat.completion")
-            XCTAssertEqual(response.model, "gpt-4o")
+            XCTAssertEqual(response.model, ServerConfig.afmModelIdentifier)
             XCTAssertEqual(response.choices.count, 1)
             XCTAssertEqual(response.choices[0].index, 0)
             XCTAssertEqual(response.choices[0].message.role, "assistant")
