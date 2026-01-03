@@ -50,6 +50,13 @@ and Anthropic client libraries.
 - ✅ Content blocks support
 - 🚧 Anthropic-compatible tool calling
 
+### Phase 5 (In Progress)
+
+- ✅ API key authentication (Bearer token)
+- ✅ Error middleware with formatted error responses
+- ✅ Request logging and metrics (MetricsMiddleware)
+- ✅ 80% code coverage (208 tests passing)
+
 ### Infrastructure
 
 - ✅ Reproducible builds with Nix flakes
@@ -60,9 +67,8 @@ and Anthropic client libraries.
 ### Planned
 
 - 🚧 Anthropic-compatible tool calling (Phase 4)
-- 🚧 API key authentication (Phase 5)
 - 🚧 Rate limiting and request throttling (Phase 5)
-- 🚧 Request logging and metrics (Phase 5)
+- 🚧 Production documentation (Phase 5)
 
 ## Requirements
 
@@ -187,7 +193,28 @@ HOST=0.0.0.0              # Bind address (default: 127.0.0.1)
 PORT=8080                 # Port number (default: 8080)
 MAX_TOKENS=1024           # Max tokens per request (default: 1024)
 LOG_LEVEL=info            # Log level: trace, debug, info, warning, error (default: info)
+API_KEY=your-secret-key   # Optional: Enable Bearer token authentication (default: disabled)
 ```
+
+### Authentication
+
+API key authentication is **disabled by default**. To enable it, set the `API_KEY` environment variable:
+
+```bash
+API_KEY=your-secret-key just run
+```
+
+When enabled, all API requests must include a Bearer token in the Authorization header:
+
+```bash
+curl -X POST http://localhost:8080/v1/chat/completions \
+  -H "Authorization: Bearer your-secret-key" \
+  -H "Content-Type: application/json" \
+  -d '{"model": "gpt-4o", "messages": [{"role": "user", "content": "Hello!"}]}'
+```
+
+If authentication fails, the server returns a 401 Unauthorized error with the appropriate error format
+(OpenAI or Anthropic depending on the endpoint).
 
 ## API Usage
 
@@ -421,11 +448,15 @@ afmbridge/
   - [x] Server-Sent Events streaming with Anthropic format
   - [x] System parameter and content blocks
   - [x] Integration tests for Anthropic API
+  - [x] Error middleware with formatted responses
   - [ ] Anthropic-compatible tool calling
-- [ ] **Phase 5:** Production Hardening
-  - [ ] API key authentication
-  - [ ] Rate limiting
-  - [ ] Request logging and metrics
+- [ ] **Phase 5:** Production Hardening (In Progress)
+  - [x] API key authentication (Bearer token)
+  - [x] Error middleware with formatted error responses
+  - [x] Request logging and metrics (MetricsMiddleware)
+  - [x] 80% code coverage (208 tests passing)
+  - [ ] Rate limiting and request throttling
+  - [ ] Production documentation
 
 See [PLAN.md](PLAN.md) for detailed phase breakdown.
 
