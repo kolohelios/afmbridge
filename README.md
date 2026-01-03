@@ -257,7 +257,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   "id": "chatcmpl-...",
   "object": "chat.completion",
   "created": 1234567890,
-  "model": "gpt-4o",
+  "model": "apple-afm-on-device",
   "choices": [
     {
       "index": 0,
@@ -348,7 +348,7 @@ curl -X POST http://localhost:8080/v1/messages \
   "id": "msg-...",
   "type": "message",
   "role": "assistant",
-  "model": "claude-opus-4-5-20251101",
+  "model": "apple-afm-on-device",
   "content": [
     {
       "type": "text",

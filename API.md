@@ -159,7 +159,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   "id": "chatcmpl-a1b2c3d4-e5f6-4a7b-8c9d-0e1f2a3b4c5d",
   "object": "chat.completion",
   "created": 1734678901,
-  "model": "gpt-4o",
+  "model": "apple-afm-on-device",
   "choices": [
     {
       "index": 0,
@@ -238,7 +238,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   "id": "chatcmpl-...",
   "object": "chat.completion",
   "created": 1734678901,
-  "model": "gpt-4o",
+  "model": "apple-afm-on-device",
   "choices": [
     {
       "index": 0,
@@ -304,7 +304,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
   "id": "chatcmpl-...",
   "object": "chat.completion",
   "created": 1734678902,
-  "model": "gpt-4o",
+  "model": "apple-afm-on-device",
   "choices": [
     {
       "index": 0,

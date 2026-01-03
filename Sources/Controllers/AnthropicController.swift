@@ -1,3 +1,4 @@
+import Configuration
 import DTOs
 import Foundation
 import Models
@@ -76,7 +77,7 @@ public struct AnthropicController: RouteCollection, Sendable {
 
         // Build response
         let responseBody = MessageResponse(
-            id: "msg_\(UUID().uuidString)", model: requestBody.model,
+            id: "msg_\(UUID().uuidString)", model: ServerConfig.afmModelIdentifier,
             content: [.text(ResponseTextBlock(text: generatedContent))], stopReason: .endTurn,
             usage: Usage(
                 inputTokens: estimateTokens(userPrompt + (systemInstructions ?? "")),
@@ -117,7 +118,8 @@ public struct AnthropicController: RouteCollection, Sendable {
                 let messageStartEvent = StreamEvent.messageStart(
                     MessageStartEvent(
                         message: MessageSnapshot(
-                            id: id, content: [], model: requestBody.model, stopReason: nil,
+                            id: id, content: [], model: ServerConfig.afmModelIdentifier,
+                            stopReason: nil,
                             usage: Usage(
                                 inputTokens: self.estimateTokens(
                                     userPrompt + (systemInstructions ?? "")), outputTokens: 0))))

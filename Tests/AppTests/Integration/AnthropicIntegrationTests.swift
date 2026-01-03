@@ -44,7 +44,7 @@ final class AnthropicIntegrationTests: XCTestCase {
 
             let response = try res.content.decode(MessageResponse.self)
             XCTAssertEqual(response.type, "message")
-            XCTAssertEqual(response.model, "claude-opus-4-5-20251101")
+            XCTAssertEqual(response.model, ServerConfig.afmModelIdentifier)
             XCTAssertEqual(response.role, "assistant")
             XCTAssertEqual(response.content.count, 1)
             XCTAssertEqual(response.stopReason, .endTurn)

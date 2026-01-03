@@ -1,3 +1,4 @@
+import Configuration
 import DTOs
 import Foundation
 import Models
@@ -35,8 +36,7 @@ public struct OpenAIController: RouteCollection, Sendable {
 
         if hasToolMessages {
             // This is a continuation with tool results - handle multi-turn conversation
-            return try await handleToolResultSubmission(
-                req: req, requestBody: requestBody, model: requestBody.model)
+            return try await handleToolResultSubmission(req: req, requestBody: requestBody)
         }
 
         // Convert messages to translation service format
@@ -66,30 +66,29 @@ public struct OpenAIController: RouteCollection, Sendable {
             if let tools = requestBody.tools, !tools.isEmpty {
                 return try await handleNonStreamingRequest(
                     req: req, requestBody: requestBody, userPrompt: userPrompt,
-                    systemInstructions: systemInstructions, model: requestBody.model)
+                    systemInstructions: systemInstructions)
             }
 
             return try await handleStreamingRequest(
-                req: req, userPrompt: userPrompt, systemInstructions: systemInstructions,
-                model: requestBody.model)
+                req: req, userPrompt: userPrompt, systemInstructions: systemInstructions)
         } else {
             return try await handleNonStreamingRequest(
                 req: req, requestBody: requestBody, userPrompt: userPrompt,
-                systemInstructions: systemInstructions, model: requestBody.model)
+                systemInstructions: systemInstructions)
         }
     }
 
     /// Handle non-streaming chat completion
     private func handleNonStreamingRequest(
         req: Request, requestBody: ChatCompletionRequest, userPrompt: String,
-        systemInstructions: String?, model: String
+        systemInstructions: String?
     ) async throws -> Response {
 
         // Check if tools are present in the request
         if let tools = requestBody.tools, !tools.isEmpty {
             return try await handleToolCallingRequest(
                 req: req, requestBody: requestBody, userPrompt: userPrompt,
-                systemInstructions: systemInstructions, model: model)
+                systemInstructions: systemInstructions)
         }
 
         // Convert messages for autocomplete detection
@@ -140,7 +139,7 @@ public struct OpenAIController: RouteCollection, Sendable {
         // Build response
         let responseBody = ChatCompletionResponse(
             id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
-            created: Int(Date().timeIntervalSince1970), model: model,
+            created: Int(Date().timeIntervalSince1970), model: ServerConfig.afmModelIdentifier,
             choices: [
                 ChatCompletionResponse.Choice(
                     index: 0, message: ChatMessage(role: "assistant", content: finalContent),
@@ -156,7 +155,7 @@ public struct OpenAIController: RouteCollection, Sendable {
     /// Handle tool calling request
     private func handleToolCallingRequest(
         req: Request, requestBody: ChatCompletionRequest, userPrompt: String,
-        systemInstructions: String?, model: String
+        systemInstructions: String?
     ) async throws -> Response {
         // Convert OpenAI tools to our ToolDefinition format
         let toolDefinitions: [ToolDefinition] =
@@ -196,7 +195,7 @@ public struct OpenAIController: RouteCollection, Sendable {
 
             let responseBody = ChatCompletionResponse(
                 id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
-                created: Int(Date().timeIntervalSince1970), model: model,
+                created: Int(Date().timeIntervalSince1970), model: ServerConfig.afmModelIdentifier,
                 choices: [
                     ChatCompletionResponse.Choice(
                         index: 0,
@@ -213,7 +212,7 @@ public struct OpenAIController: RouteCollection, Sendable {
         // No tool calls - return final content
         let responseBody = ChatCompletionResponse(
             id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
-            created: Int(Date().timeIntervalSince1970), model: model,
+            created: Int(Date().timeIntervalSince1970), model: ServerConfig.afmModelIdentifier,
             choices: [
                 ChatCompletionResponse.Choice(
                     index: 0, message: ChatMessage(role: "assistant", content: content ?? ""),
@@ -227,7 +226,7 @@ public struct OpenAIController: RouteCollection, Sendable {
 
     /// Handle tool result submission (continuation after client executes tools)
     private func handleToolResultSubmission(
-        req: Request, requestBody: ChatCompletionRequest, model: String
+        req: Request, requestBody: ChatCompletionRequest
     ) async throws -> Response {
         // Extract system instructions
         let messages = requestBody.messages.map { (role: $0.role, content: $0.content ?? "") }
@@ -289,7 +288,7 @@ public struct OpenAIController: RouteCollection, Sendable {
         // Build response
         let responseBody = ChatCompletionResponse(
             id: "chatcmpl-\(UUID().uuidString)", object: "chat.completion",
-            created: Int(Date().timeIntervalSince1970), model: model,
+            created: Int(Date().timeIntervalSince1970), model: ServerConfig.afmModelIdentifier,
             choices: [
                 ChatCompletionResponse.Choice(
                     index: 0, message: ChatMessage(role: "assistant", content: generatedContent),
@@ -304,7 +303,7 @@ public struct OpenAIController: RouteCollection, Sendable {
 
     /// Handle streaming chat completion with SSE
     private func handleStreamingRequest(
-        req: Request, userPrompt: String, systemInstructions: String?, model: String
+        req: Request, userPrompt: String, systemInstructions: String?
     ) async throws -> Response {
         let id = "chatcmpl-\(UUID().uuidString)"
         let created = Int(Date().timeIntervalSince1970)
@@ -329,7 +328,8 @@ public struct OpenAIController: RouteCollection, Sendable {
 
                 // First chunk: role only
                 let firstChunk = ChatCompletionChunk(
-                    id: id, object: "chat.completion.chunk", created: created, model: model,
+                    id: id, object: "chat.completion.chunk", created: created,
+                    model: ServerConfig.afmModelIdentifier,
                     choices: [
                         ChatCompletionChunk.ChunkChoice(
                             index: 0, delta: Delta(role: "assistant", content: nil),
@@ -351,7 +351,8 @@ public struct OpenAIController: RouteCollection, Sendable {
                     totalChars += contentDelta.count
 
                     let chunk = ChatCompletionChunk(
-                        id: id, object: "chat.completion.chunk", created: created, model: model,
+                        id: id, object: "chat.completion.chunk", created: created,
+                        model: ServerConfig.afmModelIdentifier,
                         choices: [
                             ChatCompletionChunk.ChunkChoice(
                                 index: 0, delta: Delta(role: nil, content: contentDelta),
@@ -362,7 +363,8 @@ public struct OpenAIController: RouteCollection, Sendable {
 
                 // Final chunk: finish_reason
                 let finalChunk = ChatCompletionChunk(
-                    id: id, object: "chat.completion.chunk", created: created, model: model,
+                    id: id, object: "chat.completion.chunk", created: created,
+                    model: ServerConfig.afmModelIdentifier,
                     choices: [
                         ChatCompletionChunk.ChunkChoice(
                             index: 0, delta: Delta(role: nil, content: nil), finishReason: "stop")
