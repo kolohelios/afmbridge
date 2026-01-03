@@ -1,0 +1,108 @@
+name: PR Stack Validation
+
+on:
+  pull_request:
+
+jobs:
+  validate-commits:
+    name: Validate Commit Stack
+    runs-on: macos-26
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0  # Fetch full history to access all commits
+
+      - name: Install Nix
+        uses: cachix/install-nix-action@v30
+        with:
+          extra_nix_config: |
+            experimental-features = nix-command flakes
+
+      - name: Install Swift tools
+        run: |
+          brew install swift-format swiftlint
+          brew link --overwrite swift-format swiftlint || true
+
+      - name: Validate commit messages
+        run: |
+          # Get list of commits in this PR (excluding merge commits)
+          COMMITS=$(git log --format=%H --no-merges origin/${{ github.base_ref }}..HEAD)
+
+          if [ -z "$COMMITS" ]; then
+            echo "No commits found in PR"
+            exit 1
+          fi
+
+          echo "Validating commit messages..."
+          FAILED=0
+
+          for COMMIT in $COMMITS; do
+            MSG=$(git log -1 --format=%s $COMMIT)
+            echo "Checking commit $COMMIT: $MSG"
+
+            # Check conventional commit format: type(scope): subject
+            # Types: feat, fix, docs, style, refactor, test, chore, build, ci
+            # Max length: 70 characters
+            if ! echo "$MSG" | grep -qE "^(feat|fix|docs|style|refactor|test|chore|build|ci)(\(.+\))?: .{1,}$"; then
+              echo "❌ Commit $COMMIT does not follow conventional commit format"
+              echo "   Format: type(scope): subject"
+              echo "   Types: feat, fix, docs, style, refactor, test, chore, build, ci"
+              FAILED=1
+              continue
+            fi
+
+            # Check message length (max 70 chars)
+            if [ ${#MSG} -gt 70 ]; then
+              echo "❌ Commit $COMMIT message too long (${#MSG} > 70 characters)"
+              FAILED=1
+              continue
+            fi
+
+            echo "✅ Commit $COMMIT passes format check"
+          done
+
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "❌ Some commits do not follow conventional commit format"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commits follow conventional commit format"
+
+      - name: Validate each commit builds
+        run: |
+          # Get list of commits in this PR (excluding merge commits)
+          COMMITS=$(git log --format=%H --no-merges --reverse origin/${{ github.base_ref }}..HEAD)
+
+          echo "Validating each commit in stack..."
+          FAILED=0
+
+          for COMMIT in $COMMITS; do
+            echo ""
+            echo "==============================================="
+            echo "Checking out commit $COMMIT"
+            git checkout $COMMIT
+
+            MSG=$(git log -1 --format=%s $COMMIT)
+            echo "Commit message: $MSG"
+            echo "==============================================="
+
+            # Run validation for this commit
+            if ! nix develop --command just validate; then
+              echo "❌ Commit $COMMIT failed validation"
+              FAILED=1
+              break
+            fi
+
+            echo "✅ Commit $COMMIT passed validation"
+          done
+
+          if [ $FAILED -eq 1 ]; then
+            echo ""
+            echo "❌ Not all commits in stack pass validation"
+            exit 1
+          fi
+
+          echo ""
+          echo "✅ All commits in stack pass validation"

@@ -68,31 +68,33 @@ jobs:
         run: |
           nix develop --command just validate
 
-      # TODO: Re-enable in Phase 1 when tests exist
-      # - name: Check code coverage
-      #   run: |
-      #     nix develop --command bash -c '
-      #       swift test --enable-code-coverage
-      #       COVERAGE=$(xcrun llvm-cov export \
-      #         .build/debug/afmbridgePackageTests.xctest/Contents/MacOS/afmbridgePackageTests \
-      #         --instr-profile .build/debug/codecov/default.profdata \
-      #         --format=lcov 2>/dev/null | grep -o "LF:[0-9]*" | cut -d: -f2 | awk "{s+=\$1} END {print s}")
-      #       LINES=$(xcrun llvm-cov export \
-      #         .build/debug/afmbridgePackageTests.xctest/Contents/MacOS/afmbridgePackageTests \
-      #         --instr-profile .build/debug/codecov/default.profdata \
-      #         --format=lcov 2>/dev/null | grep -o "LH:[0-9]*" | cut -d: -f2 | awk "{s+=\$1} END {print s}")
-      #       if [ -n "$LINES" ] && [ -n "$COVERAGE" ] && [ "$COVERAGE" -gt 0 ]; then
-      #         PERCENT=$((LINES * 100 / COVERAGE))
-      #         echo "Code coverage: ${PERCENT}%"
-      #         if [ "$PERCENT" -lt 80 ]; then
-      #           echo "Error: Code coverage is below 80%"
-      #           exit 1
-      #         fi
-      #       else
-      #         echo "Warning: Could not calculate coverage (no tests yet)"
-      #       fi
-      #     '
+      - name: Check code coverage
+        run: |
+          nix develop --command bash -c '
+            # Run tests with coverage (already run in validate, but need fresh run for coverage export)
+            swift test --enable-code-coverage
 
-      # TODO: Re-enable in Phase 1 when Swift build works
-      # - name: Build Docker image
-      #   run: nix build .#docker
+            # Extract coverage percentage using llvm-cov
+            COVERAGE_JSON=$(xcrun llvm-cov export \
+              .build/debug/afmbridgePackageTests.xctest/Contents/MacOS/afmbridgePackageTests \
+              --instr-profile .build/debug/codecov/default.profdata \
+              --format=text 2>/dev/null || echo "")
+
+            if [ -z "$COVERAGE_JSON" ]; then
+              echo "Error: Could not extract coverage data"
+              exit 1
+            fi
+
+            # Parse coverage percentage from summary
+            PERCENT=$(echo "$COVERAGE_JSON" | grep -oE "TOTAL.*" | awk "{print \$NF}" | tr -d "%")
+
+            echo "Code coverage: ${PERCENT}%"
+
+            # Fail if coverage is below 80%
+            if [ -n "$PERCENT" ] && [ "$PERCENT" -lt 80 ]; then
+              echo "Error: Code coverage ($PERCENT%) is below required 80%"
+              exit 1
+            fi
+
+            echo "✅ Code coverage check passed"
+          '
