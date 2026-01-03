@@ -1,7 +1,7 @@
 import Foundation
 
 /// Errors that can occur when interacting with Foundation Models
-public enum LLMError: LocalizedError {
+public enum LLMError: LocalizedError, Equatable {
     /// The requested model is not available on this system
     case modelNotAvailable(String)
 
