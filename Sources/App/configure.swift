@@ -12,7 +12,7 @@ func configure(_ app: Application, llmProvider: LLMProvider? = nil) async throws
 
     // Configure middleware
     app.middleware = .init()
-    app.middleware.use(ErrorMiddleware.default(environment: app.environment))
+    app.middleware.use(APIErrorMiddleware())
     app.middleware.use(MetricsMiddleware())
 
     // Configure server
