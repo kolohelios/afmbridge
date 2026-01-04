@@ -19,6 +19,41 @@ jobs:
       - name: Build binary
         run: swift build -c release
 
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          echo "$CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k $KEYCHAIN_PATH -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Add to search list
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Sign binary
+        run: |
+          # Find the Developer ID Application identity
+          IDENTITY=$(security find-identity -v -p codesigning | grep "Developer ID Application" | head -1 | grep -o '"[^"]*"' | tr -d '"')
+          echo "Using identity: $IDENTITY"
+
+          codesign --sign "$IDENTITY" \
+            --timestamp \
+            --options runtime \
+            --entitlements entitlements.plist \
+            .build/release/AFMBridge
+
+      - name: Verify signature
+        run: codesign --verify --verbose .build/release/AFMBridge
+
       - name: Package binary
         run: |
           mkdir -p artifacts
