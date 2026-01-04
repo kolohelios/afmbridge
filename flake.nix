@@ -102,13 +102,57 @@
         };
 
         # Package outputs
-        # TODO: Re-enable in Phase 1 when Swift code exists
-        packages = {
-          # Placeholder - will be the server binary in Phase 1
-          default = pkgs.runCommand "afmbridge-placeholder" { } ''
-            mkdir -p $out
-            echo "Phase 0: Infrastructure only - no build artifacts yet" > $out/README
-          '';
+        packages = rec {
+          # Main Swift binary - built with system Swift (not Nix Swift)
+          # Reason: nixpkgs only has Swift 5.10, we need Swift 6+
+          default = pkgs.stdenv.mkDerivation {
+            pname = "afmbridge";
+            version = "0.1.0";
+            src = ./.;
+
+            # Use system Swift from Xcode (macOS) or system package (Linux)
+            # No buildInputs - rely on PATH having swift available
+            nativeBuildInputs = [ ];
+
+            buildPhase = ''
+              export HOME=$TMPDIR
+
+              # Use system Swift from Xcode (not Nix Swift 5.10)
+              export PATH="/usr/bin:$PATH"
+              export SDKROOT=$(xcrun --show-sdk-path)
+              export DEVELOPER_DIR=$(xcode-select -p)
+
+              swift build -c release --disable-sandbox
+            '';
+
+            installPhase = ''
+              mkdir -p $out/bin
+              cp .build/release/AFMBridge $out/bin/
+            '';
+
+            meta = {
+              description = "AFMBridge - OpenAI/Anthropic API bridge for Apple Foundation Models";
+              platforms = [ "aarch64-darwin" "x86_64-darwin" ];  # macOS only
+            };
+          };
+
+          # Docker image - builds a lightweight image with the binary
+          # Note: This image is macOS-only (requires FoundationModels framework)
+          docker = pkgs.dockerTools.buildLayeredImage {
+            name = "afmbridge";
+            tag = "latest";
+            contents = [ default ];
+            config = {
+              Cmd = [ "${default}/bin/AFMBridge" ];
+              ExposedPorts = {
+                "8080/tcp" = {};
+              };
+              Env = [
+                "HOST=0.0.0.0"
+                "PORT=8080"
+              ];
+            };
+          };
         };
 
         # Formatter

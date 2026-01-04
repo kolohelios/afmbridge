@@ -12,29 +12,17 @@ permissions:
 jobs:
   build-binary:
     name: Build macOS Binary
-    runs-on: macos-latest
+    runs-on: macos-26
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: afmbridge
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
       - name: Build binary
-        run: nix build
+        run: swift build -c release
 
       - name: Package binary
         run: |
           mkdir -p artifacts
-          cp result/bin/AFMBridge artifacts/
+          cp .build/release/AFMBridge artifacts/
           cd artifacts
           tar -czf afmbridge-macos-${{ github.ref_name }}.tar.gz AFMBridge
           shasum -a 256 afmbridge-macos-${{ github.ref_name }}.tar.gz > checksums.txt
@@ -45,48 +33,9 @@ jobs:
           name: macos-binary
           path: artifacts/
 
-  build-docker:
-    name: Build and Push Docker Image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: afmbridge
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Docker image
-        run: nix build .#docker
-
-      - name: Load and tag image
-        run: |
-          docker load < result
-          docker tag afmbridge:latest ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          docker tag afmbridge:latest ghcr.io/${{ github.repository }}:latest
-
-      - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          docker push ghcr.io/${{ github.repository }}:latest
-
   create-release:
     name: Create GitHub Release
-    needs: [build-binary, build-docker]
+    needs: [build-binary]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -121,10 +70,7 @@ jobs:
 
             ### Docker
 
-            ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            docker run -p 8080:8080 ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            ```
+            Docker images will be available in a future release. For now, you can build from source using the Dockerfile.
 
             ## Checksums
 
