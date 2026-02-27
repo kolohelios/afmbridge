@@ -130,4 +130,100 @@ public struct MessageTranslationService: Sendable {
 
         return extractTextContent(from: lastUserMessage.content)
     }
+
+    // MARK: - Anthropic Tool Calling Support
+
+    /// Extracts and categorizes tool blocks from Anthropic message content
+    /// - Parameter content: Anthropic message content (string or blocks)
+    /// - Returns: Tuple of text strings, tool use blocks, and tool result blocks
+    public func extractToolBlocks(
+        from content: Message.Content
+    ) -> (text: [String], toolUse: [ToolUseBlock], toolResults: [ToolResultBlock]) {
+        switch content {
+        case .text(let text):
+            // Simple text content - no tool blocks
+            return (text: [text], toolUse: [], toolResults: [])
+
+        case .blocks(let blocks):
+            var textBlocks: [String] = []
+            var toolUseBlocks: [ToolUseBlock] = []
+            var toolResultBlocks: [ToolResultBlock] = []
+
+            for block in blocks {
+                switch block {
+                case .text(let textBlock): textBlocks.append(textBlock.text)
+                case .toolUse(let toolUseBlock): toolUseBlocks.append(toolUseBlock)
+                case .toolResult(let toolResultBlock): toolResultBlocks.append(toolResultBlock)
+                }
+            }
+
+            return (text: textBlocks, toolUse: toolUseBlocks, toolResults: toolResultBlocks)
+        }
+    }
+
+    /// Converts Anthropic tool definition to internal ToolDefinition format
+    /// - Parameter tool: Anthropic tool definition
+    /// - Returns: Internal ToolDefinition for backend services
+    public func convertAnthropicToolToDefinition(_ tool: AnthropicTool) -> ToolDefinition {
+        return ToolDefinition(
+            name: tool.name, description: tool.description ?? "", parameters: tool.inputSchema)
+    }
+
+    /// Checks if any message contains tool result blocks
+    /// - Parameter messages: Array of Anthropic messages
+    /// - Returns: True if tool results are present in any message
+    public func hasToolResultsInMessages(_ messages: [Message]) -> Bool {
+        for message in messages {
+            let (_, _, toolResults) = extractToolBlocks(from: message.content)
+            if !toolResults.isEmpty { return true }
+        }
+        return false
+    }
+
+    /// Builds conversation history string including tool calls and results
+    /// - Parameter messages: Array of Anthropic messages with tool interactions
+    /// - Returns: Formatted conversation string for the model
+    public func buildToolResultHistory(from messages: [Message]) -> String {
+        var conversationParts: [String] = []
+
+        for message in messages {
+            let (textBlocks, toolUseBlocks, toolResultBlocks) = extractToolBlocks(
+                from: message.content)
+
+            switch message.role {
+            case "user":
+                // User message - may contain tool results
+                if !toolResultBlocks.isEmpty {
+                    for toolResult in toolResultBlocks {
+                        conversationParts.append(
+                            "Tool '\(toolResult.toolUseId)' returned: \(toolResult.content)")
+                    }
+                } else if !textBlocks.isEmpty {
+                    conversationParts.append("User: \(textBlocks.joined(separator: " "))")
+                }
+
+            case "assistant":
+                // Assistant message - may contain tool calls
+                if !toolUseBlocks.isEmpty {
+                    let toolCallsDesc = toolUseBlocks.map { toolUse in
+                        let inputDesc: String
+                        do {
+                            let inputData = try JSONEncoder().encode(toolUse.input)
+                            inputDesc = String(data: inputData, encoding: .utf8) ?? "{}"
+                        } catch { inputDesc = "{}" }
+                        return "[\(toolUse.name)(\(inputDesc))]"
+                    }.joined(separator: ", ")
+                    conversationParts.append("Assistant called tools: \(toolCallsDesc)")
+                } else if !textBlocks.isEmpty {
+                    conversationParts.append("Assistant: \(textBlocks.joined(separator: " "))")
+                }
+
+            default:
+                // Unknown role - skip
+                break
+            }
+        }
+
+        return conversationParts.joined(separator: "\n")
+    }
 }

@@ -652,21 +652,21 @@ curl -X POST "$API_URL" \
 - ✅ Streaming DTOs for tool calls (falls back to non-streaming)
 - ✅ Client-side tool execution pattern
 
-### Phase 4 (In Progress)
+### Phase 4 (Complete)
 
 - ✅ POST /v1/messages (Anthropic compatibility)
 - ✅ Anthropic Messages API with streaming support
 - ✅ API key authentication
 - ✅ Error middleware with formatted responses
 - ✅ Request logging and metrics
-- 🚧 Anthropic-compatible tool calling
+- ✅ Anthropic-compatible tool calling
 
 ### Phase 5 (In Progress)
 
 - ✅ API key authentication
 - ✅ Request logging and metrics
-- ✅ 80% code coverage (208 tests)
-- 🚧 Rate limiting
+- ✅ 80% code coverage (239 tests, 81.61% coverage)
+- 🚧 Production documentation and deployment guide
 - 🚧 Production documentation
 
 ## Error Handling

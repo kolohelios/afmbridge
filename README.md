@@ -12,7 +12,7 @@ AFMBridge is a standalone Swift/Vapor REST API server that wraps Apple's Foundat
 (macOS 26.0+) with industry-standard LLM APIs, enabling seamless integration with existing OpenAI
 and Anthropic client libraries.
 
-**Status:** 🚧 Phase 4 - Anthropic API Support (In Progress)
+**Status:** ✅ Phase 4 - Anthropic API Support (Complete)
 
 ## Features
 
@@ -41,21 +41,21 @@ and Anthropic client libraries.
 - ✅ Streaming DTOs for tool calls (automatic fallback to non-streaming)
 - ✅ Complete test coverage (100 tests, 100% passing)
 
-### Phase 4 (In Progress)
+### Phase 4 (Complete)
 
 - ✅ Anthropic Messages API compatibility (`/v1/messages`)
 - ✅ Non-streaming message responses
 - ✅ Server-Sent Events (SSE) streaming with Anthropic format
 - ✅ System parameter support
 - ✅ Content blocks support
-- 🚧 Anthropic-compatible tool calling
+- ✅ Anthropic-compatible tool calling
 
 ### Phase 5 (In Progress)
 
 - ✅ API key authentication (Bearer token)
 - ✅ Error middleware with formatted error responses
 - ✅ Request logging and metrics (MetricsMiddleware)
-- ✅ 80% code coverage (208 tests passing)
+- ✅ 80% code coverage (239 tests passing, 81.61% coverage)
 
 ### Infrastructure
 
@@ -68,9 +68,7 @@ and Anthropic client libraries.
 
 ### Planned
 
-- 🚧 Anthropic-compatible tool calling (Phase 4)
-- 🚧 Rate limiting and request throttling (Phase 5)
-- 🚧 Production documentation (Phase 5)
+- 🚧 Production documentation and deployment guide (Phase 5)
 
 ## Installation
 
@@ -379,7 +377,7 @@ curl -X POST http://localhost:8080/v1/chat/completions \
 Returns tool calls with `finish_reason: "tool_calls"`. Client executes tools and submits results
 in a follow-up request. See [API.md](API.md) for complete tool calling documentation.
 
-### Anthropic Compatible Endpoint (Phase 4 - In Progress)
+### Anthropic Compatible Endpoint (Phase 4 - Complete)
 
 **Basic message:**
 
@@ -450,6 +448,32 @@ Returns Server-Sent Events with Anthropic's 6-event streaming format:
 5. `message_delta` - Final message metadata with stop reason
 6. `message_stop` - Stream completion
 
+**Tool calling support:**
+
+```bash
+curl -X POST http://localhost:8080/v1/messages \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-opus-4-5-20251101",
+    "max_tokens": 1024,
+    "messages": [{"role": "user", "content": "What is the weather in Boston?"}],
+    "tools": [{
+      "name": "get_weather",
+      "description": "Get weather for a location",
+      "input_schema": {
+        "type": "object",
+        "properties": {
+          "location": {"type": "string"}
+        },
+        "required": ["location"]
+      }
+    }]
+  }'
+```
+
+Returns tool_use content blocks with `stop_reason: "tool_use"`. Client executes tools and
+submits results as tool_result blocks in a follow-up request.
+
 ## Architecture
 
 Built with:
@@ -507,21 +531,20 @@ afmbridge/
   - [x] Multi-turn conversation with tool results
   - [x] Client-side tool execution pattern
   - [x] Comprehensive tool calling tests (100 total tests)
-- [ ] **Phase 4:** Anthropic API Support (In Progress)
+- [x] **Phase 4:** Anthropic API Support (Complete)
   - [x] Anthropic Messages API DTOs
   - [x] Non-streaming message support
   - [x] Server-Sent Events streaming with Anthropic format
   - [x] System parameter and content blocks
   - [x] Integration tests for Anthropic API
   - [x] Error middleware with formatted responses
-  - [ ] Anthropic-compatible tool calling
-- [ ] **Phase 5:** Production Hardening (In Progress)
+  - [x] Anthropic-compatible tool calling
+- [ ] **Phase 5:** Production Ready (In Progress)
   - [x] API key authentication (Bearer token)
   - [x] Error middleware with formatted error responses
   - [x] Request logging and metrics (MetricsMiddleware)
-  - [x] 80% code coverage (208 tests passing)
-  - [ ] Rate limiting and request throttling
-  - [ ] Production documentation
+  - [x] 80% code coverage (239 tests passing, 81.61% coverage)
+  - [ ] Production documentation and deployment guide
 
 See [PLAN.md](PLAN.md) for detailed phase breakdown.
 

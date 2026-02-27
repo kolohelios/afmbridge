@@ -392,4 +392,239 @@ final class MessageTranslationServiceTests: XCTestCase {
             }
         }
     }
+
+    // MARK: - Tool Block Extraction Tests
+
+    func testExtractToolBlocks_simpleText() {
+        let content = Message.Content.text("Hello")
+
+        let (text, toolUse, toolResults) = service.extractToolBlocks(from: content)
+
+        XCTAssertEqual(text, ["Hello"])
+        XCTAssertTrue(toolUse.isEmpty)
+        XCTAssertTrue(toolResults.isEmpty)
+    }
+
+    func testExtractToolBlocks_textBlocks() {
+        let blocks: [ContentBlock] = [
+            .text(TextBlock(text: "First")), .text(TextBlock(text: "Second")),
+        ]
+        let content = Message.Content.blocks(blocks)
+
+        let (text, toolUse, toolResults) = service.extractToolBlocks(from: content)
+
+        XCTAssertEqual(text, ["First", "Second"])
+        XCTAssertTrue(toolUse.isEmpty)
+        XCTAssertTrue(toolResults.isEmpty)
+    }
+
+    func testExtractToolBlocks_toolUseBlocks() {
+        let blocks: [ContentBlock] = [
+            .text(TextBlock(text: "Let me check")),
+            .toolUse(
+                ToolUseBlock(
+                    id: "tool_123", name: "get_weather", input: ["location": .string("NYC")])),
+        ]
+        let content = Message.Content.blocks(blocks)
+
+        let (text, toolUse, toolResults) = service.extractToolBlocks(from: content)
+
+        XCTAssertEqual(text, ["Let me check"])
+        XCTAssertEqual(toolUse.count, 1)
+        XCTAssertEqual(toolUse[0].id, "tool_123")
+        XCTAssertEqual(toolUse[0].name, "get_weather")
+        XCTAssertTrue(toolResults.isEmpty)
+    }
+
+    func testExtractToolBlocks_toolResultBlocks() {
+        let blocks: [ContentBlock] = [
+            .toolResult(ToolResultBlock(toolUseId: "tool_123", content: "72°F and sunny"))
+        ]
+        let content = Message.Content.blocks(blocks)
+
+        let (text, toolUse, toolResults) = service.extractToolBlocks(from: content)
+
+        XCTAssertTrue(text.isEmpty)
+        XCTAssertTrue(toolUse.isEmpty)
+        XCTAssertEqual(toolResults.count, 1)
+        XCTAssertEqual(toolResults[0].toolUseId, "tool_123")
+        XCTAssertEqual(toolResults[0].content, "72°F and sunny")
+    }
+
+    func testExtractToolBlocks_mixedBlocks() {
+        let blocks: [ContentBlock] = [
+            .text(TextBlock(text: "Checking weather")),
+            .toolUse(
+                ToolUseBlock(id: "tool_1", name: "get_weather", input: ["location": .string("NYC")])
+            ), .text(TextBlock(text: "And temperature")),
+            .toolUse(
+                ToolUseBlock(
+                    id: "tool_2", name: "get_temperature", input: ["unit": .string("celsius")])),
+        ]
+        let content = Message.Content.blocks(blocks)
+
+        let (text, toolUse, toolResults) = service.extractToolBlocks(from: content)
+
+        XCTAssertEqual(text, ["Checking weather", "And temperature"])
+        XCTAssertEqual(toolUse.count, 2)
+        XCTAssertEqual(toolUse[0].id, "tool_1")
+        XCTAssertEqual(toolUse[1].id, "tool_2")
+        XCTAssertTrue(toolResults.isEmpty)
+    }
+
+    // MARK: - Tool Definition Conversion Tests
+
+    func testConvertAnthropicToolToDefinition_basicTool() {
+        let tool = AnthropicTool(
+            name: "get_weather", description: "Get current weather",
+            inputSchema: JSONSchema(
+                type: "object", properties: ["location": ["type": .string("string")]],
+                required: ["location"]))
+
+        let result = service.convertAnthropicToolToDefinition(tool)
+
+        XCTAssertEqual(result.name, "get_weather")
+        XCTAssertEqual(result.description, "Get current weather")
+        XCTAssertEqual(result.parameters.schema["type"], .string("object"))
+    }
+
+    func testConvertAnthropicToolToDefinition_noDescription() {
+        let tool = AnthropicTool(
+            name: "simple_tool", description: nil, inputSchema: JSONSchema(type: "object"))
+
+        let result = service.convertAnthropicToolToDefinition(tool)
+
+        XCTAssertEqual(result.name, "simple_tool")
+        XCTAssertEqual(result.description, "")  // Empty string when nil
+    }
+
+    // MARK: - Tool Result Detection Tests
+
+    func testHasToolResultsInMessages_noToolResults() {
+        let messages = [
+            Message(role: "user", text: "Hello"), Message(role: "assistant", text: "Hi there!"),
+        ]
+
+        let result = service.hasToolResultsInMessages(messages)
+
+        XCTAssertFalse(result)
+    }
+
+    func testHasToolResultsInMessages_withToolResults() {
+        let messages = [
+            Message(role: "user", text: "What's the weather?"),
+            Message(
+                role: "assistant",
+                content: .blocks([
+                    .text(TextBlock(text: "Let me check")),
+                    .toolUse(
+                        ToolUseBlock(
+                            id: "tool_123", name: "get_weather", input: ["location": .string("NYC")]
+                        )),
+                ])),
+            Message(
+                role: "user",
+                content: .blocks([
+                    .toolResult(ToolResultBlock(toolUseId: "tool_123", content: "72°F"))
+                ])),
+        ]
+
+        let result = service.hasToolResultsInMessages(messages)
+
+        XCTAssertTrue(result)
+    }
+
+    func testHasToolResultsInMessages_emptyMessages() {
+        let messages: [Message] = []
+
+        let result = service.hasToolResultsInMessages(messages)
+
+        XCTAssertFalse(result)
+    }
+
+    // MARK: - Tool Result History Building Tests
+
+    func testBuildToolResultHistory_simpleConversation() {
+        let messages = [
+            Message(role: "user", text: "What's the weather?"),
+            Message(role: "assistant", text: "Let me check for you."),
+        ]
+
+        let result = service.buildToolResultHistory(from: messages)
+
+        XCTAssertEqual(result, "User: What's the weather?\nAssistant: Let me check for you.")
+    }
+
+    func testBuildToolResultHistory_withToolCall() {
+        let messages = [
+            Message(role: "user", text: "What's the weather in Boston?"),
+            Message(
+                role: "assistant",
+                content: .blocks([
+                    .text(TextBlock(text: "Let me check")),
+                    .toolUse(
+                        ToolUseBlock(
+                            id: "tool_123", name: "get_weather",
+                            input: ["location": .string("Boston")])),
+                ])),
+        ]
+
+        let result = service.buildToolResultHistory(from: messages)
+
+        XCTAssertTrue(result.contains("User: What's the weather in Boston?"))
+        XCTAssertTrue(result.contains("Assistant called tools:"))
+        XCTAssertTrue(result.contains("get_weather"))
+    }
+
+    func testBuildToolResultHistory_withToolResults() {
+        let messages = [
+            Message(role: "user", text: "What's the weather?"),
+            Message(
+                role: "assistant",
+                content: .blocks([
+                    .toolUse(
+                        ToolUseBlock(
+                            id: "tool_123", name: "get_weather", input: ["location": .string("NYC")]
+                        ))
+                ])),
+            Message(
+                role: "user",
+                content: .blocks([
+                    .toolResult(ToolResultBlock(toolUseId: "tool_123", content: "72°F and sunny"))
+                ])),
+        ]
+
+        let result = service.buildToolResultHistory(from: messages)
+
+        XCTAssertTrue(result.contains("Assistant called tools"))
+        XCTAssertTrue(result.contains("Tool 'tool_123' returned: 72°F and sunny"))
+    }
+
+    func testBuildToolResultHistory_multipleToolCalls() {
+        let messages = [
+            Message(
+                role: "assistant",
+                content: .blocks([
+                    .toolUse(
+                        ToolUseBlock(
+                            id: "tool_1", name: "tool_a", input: ["param": .string("val1")])),
+                    .toolUse(
+                        ToolUseBlock(
+                            id: "tool_2", name: "tool_b", input: ["param": .string("val2")])),
+                ]))
+        ]
+
+        let result = service.buildToolResultHistory(from: messages)
+
+        XCTAssertTrue(result.contains("tool_a"))
+        XCTAssertTrue(result.contains("tool_b"))
+    }
+
+    func testBuildToolResultHistory_emptyMessages() {
+        let messages: [Message] = []
+
+        let result = service.buildToolResultHistory(from: messages)
+
+        XCTAssertEqual(result, "")
+    }
 }
