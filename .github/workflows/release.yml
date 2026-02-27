@@ -16,18 +16,6 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: afmbridge
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
-
       - name: Build binary
         run: |
           # Use system Swift (macOS comes with Swift/Xcode)
@@ -52,18 +40,6 @@ jobs:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
-      - name: Install Nix
-        uses: cachix/install-nix-action@v27
-        with:
-          extra_nix_config: |
-            experimental-features = nix-command flakes
-
-      - name: Setup Cachix
-        uses: cachix/cachix-action@v15
-        with:
-          name: afmbridge
-          authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
