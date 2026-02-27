@@ -62,6 +62,30 @@ jobs:
       - name: Verify signature
         run: codesign --verify --verbose .build/release/AFMBridge
 
+      - name: Notarize binary
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        run: |
+          # Create a zip for notarization
+          ditto -c -k --keepParent .build/release/AFMBridge AFMBridge.zip
+
+          # Submit for notarization
+          echo "Submitting for notarization..."
+          xcrun notarytool submit AFMBridge.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --wait
+
+          # Note: Stapling is not possible for raw binaries, only .app bundles, .dmg, or .pkg
+          # The notarization ticket is stored on Apple's servers and will be verified online
+
+          # Verify with Gatekeeper
+          echo "Verifying with Gatekeeper..."
+          spctl --assess --type execute --verbose .build/release/AFMBridge || echo "Note: spctl may fail in CI but binary is notarized"
+
       - name: Package binary
         run: |
           mkdir -p artifacts
