@@ -1,5 +1,5 @@
 {
-  description = "AFMBridge - Apple Foundation Models Bridge";
+  description = "AFMBridge - Development tools wrapping system Swift";
 
   inputs = {
     nixpkgs.url = "github:NixOS/nixpkgs/nixpkgs-unstable";
@@ -16,108 +16,75 @@
           };
         };
 
-        # Development tools
-        # NOTE: Swift toolchain is NOT included from Nix - use system Swift from Xcode
-        # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
-        # NOTE: swift-format and swiftlint are NOT included from Nix
-        # Reason: They pull in apple-sdk-14.4 which conflicts with Swift 6
-        # Install via: brew install swift-format swiftlint
-
-        # Python with SDK packages
+        # Python with SDK packages for integration testing
         pythonWithPackages = pkgs.python3.withPackages (ps: [
           ps.openai
           ps.anthropic
         ]);
 
-        devTools = with pkgs; [
-          # Task runner
-          just
-
-          # Markdown linting
-          nodePackages.markdownlint-cli2
-
-          # Docker for containerization
-          docker
-
-          # Git (for jj git interop)
-          git
-
-          # Direnv for automatic env loading
-          direnv
-        ];
-
       in
       {
-        # Development shell
-        devShells.default = pkgs.mkShell {
-          buildInputs = devTools ++ [ pythonWithPackages ];
+        # Development shell - wraps system Swift, provides dev tools
+        # Uses mkShellNoCC to avoid Nix's C compiler wrapper and SDK
+        devShells.default = pkgs.mkShellNoCC {
+          packages = with pkgs; [
+            # Task runner (pure Rust, no SDK dependencies)
+            just
+
+            # Markdown linting (pure Node.js, no SDK dependencies)
+            nodePackages.markdownlint-cli2
+
+            # Python SDK packages for integration tests
+            pythonWithPackages
+
+            # Note: Removed docker, git, direnv - these pull in clang/SDK
+            # Install via Homebrew instead: brew install docker git direnv
+          ];
 
           shellHook = ''
-            # Override Nix SDK paths to use system Xcode SDK
-            # Even though Swift isn't in devTools, other packages (like git's libcxx)
-            # pull in apple-sdk which sets these variables and conflicts with Swift 6
-            export SDKROOT=/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk
-            export DEVELOPER_DIR=/Applications/Xcode.app/Contents/Developer
+            # Force system toolchain paths (critical for Swift)
+            export SDKROOT=$(xcrun --show-sdk-path 2>/dev/null || echo "/Applications/Xcode.app/Contents/Developer/Platforms/MacOSX.platform/Developer/SDKs/MacOSX.sdk")
+            export DEVELOPER_DIR=$(xcode-select -p 2>/dev/null || echo "/Applications/Xcode.app/Contents/Developer")
 
-            # Unset Nix C/C++ compiler variables to prevent interference with Swift compilation
-            # Swift Package Manager should use system toolchain, not Nix's C compiler wrapper
-            unset NIX_CFLAGS_COMPILE
-            unset NIX_LDFLAGS
-            unset NIX_CC
-            unset NIX_BINTOOLS
+            # Clear any Nix compiler variables
+            unset NIX_CFLAGS_COMPILE NIX_LDFLAGS NIX_CC NIX_BINTOOLS
 
-            # Point CC/CXX to system clang, not Nix's wrapper
-            # This ensures Swift Package Manager uses the correct toolchain for C/C++ dependencies
-            export CC=/usr/bin/clang
-            export CXX=/usr/bin/clang++
+            # Ensure system tools come first
+            export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-            # Add Homebrew to PATH for swift-format and swiftlint
-            # These tools are installed via Homebrew (not Nix) to avoid Swift 6 conflicts
-            # Add both ARM (/opt/homebrew) and Intel (/usr/local) locations
+            # Add Homebrew (for swift-format, swiftlint, docker, git, direnv)
             export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
-            # Set PYTHONPATH to nix-provided packages (openai, anthropic)
+            # Set PYTHONPATH for SDK integration tests
             export PYTHONPATH="${pythonWithPackages}/${pythonWithPackages.sitePackages}:$PYTHONPATH"
+
+            # Server defaults
+            export HOST="127.0.0.1"
+            export PORT="8080"
 
             echo "🚀 AFMBridge Development Environment"
             echo ""
-            echo "Prerequisites (install via Homebrew):"
-            echo "  brew install swift-format swiftlint"
+            echo "Tools provided by Nix:"
+            echo "  ✓ just              Task runner"
+            echo "  ✓ markdownlint-cli2 Markdown linting"
+            echo "  ✓ python3           SDK integration tests (openai, anthropic)"
             echo ""
-            echo "Available commands:"
-            echo "  just --list       Show all tasks"
-            echo "  just validate     Run all quality checks"
-            echo "  swift --version   Check Swift version"
+            echo "Tools from Homebrew (install if missing):"
+            echo "  brew install swift-format swiftlint docker git direnv"
             echo ""
-            echo "SDK Testing:"
-            echo "  python3 Tests/SDKTests/test_openai_sdk.py"
+            echo "Swift (system toolchain):"
+            swift --version 2>/dev/null || echo "  ⚠ Swift not found - install Xcode"
+            echo "  SDK: $SDKROOT"
             echo ""
-            echo "Swift version:"
-            swift --version
-          '';
-
-          # Set environment variables
-          HOST = "127.0.0.1";
-          PORT = "8080";
-        };
-
-        # Package outputs
-        # TODO: Re-enable in Phase 1 when Swift code exists
-        packages = {
-          # Placeholder - will be the server binary in Phase 1
-          default = pkgs.runCommand "afmbridge-placeholder" { } ''
-            mkdir -p $out
-            echo "Phase 0: Infrastructure only - no build artifacts yet" > $out/README
+            echo "Commands:"
+            echo "  just --list    Show all tasks"
+            echo "  just validate  Run all quality checks"
+            echo "  just run       Start the server"
           '';
         };
 
-        # Formatter
+        # Formatter for Nix files
         formatter = pkgs.nixpkgs-fmt;
-
-        # Checks
-        checks = {
-          build = self.packages.${system}.default;
-        };
       }
     );
 }
