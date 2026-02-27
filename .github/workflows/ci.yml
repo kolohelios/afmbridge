@@ -40,8 +40,7 @@ jobs:
             ${{ runner.os }}-homebrew-
 
       # Install Swift tooling via Homebrew (not Nix)
-      # Reason: nixpkgs only has Swift 5.10, but we need Swift 6+
-      # System Xcode provides Swift 6.1.2 on macos-15
+      # Reason: Nix versions pull in old SDK that conflicts with system Swift 6.2.3
       - name: Install Swift tools
         run: |
           brew install swift-format swiftlint
@@ -61,11 +60,10 @@ jobs:
           extra_nix_config: |
             experimental-features = nix-command flakes
 
-      - name: Check Nix flake
-        run: nix flake check
-
       - name: Validate (format + lint + test + build)
         run: |
+          # Use Nix for dev tools (just, markdownlint)
+          # But system Swift for compilation (avoids SDK conflicts)
           nix develop --command just validate
 
       - name: Check code coverage

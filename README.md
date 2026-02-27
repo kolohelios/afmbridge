@@ -63,6 +63,8 @@ and Anthropic client libraries.
 - ✅ Docker containerization
 - ✅ Structured logging
 - ✅ Automated CI/CD with GitHub Actions
+- ✅ Code-signed and notarized macOS releases
+- ✅ Automated binary distribution via GitHub Releases
 
 ### Planned
 
@@ -70,12 +72,37 @@ and Anthropic client libraries.
 - 🚧 Rate limiting and request throttling (Phase 5)
 - 🚧 Production documentation (Phase 5)
 
+## Installation
+
+### Pre-built Binary (Recommended)
+
+Download the latest signed and notarized macOS binary from
+[GitHub Releases](https://github.com/kolohelios/afmbridge/releases):
+
+```bash
+# Download and extract (replace VERSION with latest from releases page)
+VERSION=v0.1.0-beta.6  # Check releases page for latest version
+curl -L -o afmbridge.tar.gz \
+  https://github.com/kolohelios/afmbridge/releases/download/${VERSION}/afmbridge-macos-${VERSION}.tar.gz
+tar -xzf afmbridge.tar.gz
+
+# Run the server
+./AFMBridge serve
+```
+
+The binary is code-signed with a Developer ID Application certificate and notarized by Apple, so macOS
+will trust it without security warnings.
+
+### Build from Source
+
+See [Quick Start](#quick-start) below for building with Nix or Docker.
+
 ## Requirements
 
-- **macOS 26.0+** (for FoundationModels framework when available)
+- **macOS 26.0+** (for FoundationModels framework)
 - **Apple Silicon** (M-series chips)
-- **Nix** with flakes enabled (for development)
-- **Swift 6.0+**
+- **Swift 6.0+** (for source builds)
+- **Nix** with flakes enabled (optional, for reproducible builds)
 
 ## About Apple FoundationModels
 
@@ -103,12 +130,17 @@ Official introduction video
 
 ### Using Nix (Recommended)
 
+Nix provides consistent development tool versions while using system Swift for compilation:
+
 ```bash
 # Clone the repository
 git clone https://github.com/kolohelios/afmbridge.git
 cd afmbridge
 
-# Enter development environment
+# Install Swift development tools via Homebrew
+brew install swift-format swiftlint
+
+# Enter Nix development environment
 nix develop
 
 # Run the server
@@ -116,6 +148,27 @@ just run
 
 # Or run with custom config
 HOST=0.0.0.0 PORT=8080 just run
+```
+
+**How it works:**
+
+- **Nix provides**: `just`, `markdownlint`, `docker`, Python SDKs (openai, anthropic)
+- **Homebrew provides**: `swift-format`, `swiftlint` (avoid SDK conflicts)
+- **System provides**: Swift 6.2.3 compiler (required for FoundationModels)
+
+### Without Nix
+
+```bash
+# Clone the repository
+git clone https://github.com/kolohelios/afmbridge.git
+cd afmbridge
+
+# Install all development tools via Homebrew
+brew install just swift-format swiftlint
+
+# Build and run
+just build
+just run
 ```
 
 ### Using Docker
@@ -132,8 +185,20 @@ just docker-run
 
 ### Prerequisites
 
-- Nix with flakes enabled
-- direnv (optional but recommended)
+#### With Nix (Recommended)
+
+- **Nix** with flakes enabled ([install](https://nixos.org/download))
+- **Homebrew** for Swift tools (`swift-format`, `swiftlint`)
+- **Swift 6.0+** - Included with Xcode on macOS 26+
+- **direnv** - Automatic environment loading (optional)
+
+Nix provides consistent versions of `just`, `markdownlint`, `docker`, and Python SDKs.
+Homebrew provides Swift-specific tools to avoid SDK conflicts.
+
+#### Without Nix
+
+- **Swift 6.0+** - Included with Xcode on macOS 26+
+- **Homebrew** for all dev tools: `brew install just swift-format swiftlint`
 
 ### Setup
 
