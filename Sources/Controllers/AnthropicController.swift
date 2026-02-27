@@ -35,12 +35,29 @@ public struct AnthropicController: RouteCollection, Sendable {
         let systemInstructions = messageTranslator.extractAnthropicSystemInstructions(
             systemParameter: requestBody.system, messages: requestBody.messages)
 
+        // Check if this is a tool result submission
+        let hasToolResults = messageTranslator.hasToolResultsInMessages(requestBody.messages)
+
+        if hasToolResults {
+            // This is a continuation with tool results - generate final response
+            return try await handleToolResultSubmission(
+                req: req, requestBody: requestBody, systemInstructions: systemInstructions)
+        }
+
         // Extract user prompt
         let userPrompt: String
         do {
             userPrompt = try messageTranslator.extractAnthropicUserPrompt(
                 from: requestBody.messages)
         } catch let error as LLMError { throw mapLLMError(error) }
+
+        // Check if tools are defined
+        if let tools = requestBody.tools, !tools.isEmpty {
+            // Tool calling request - return tool_use blocks
+            return try await handleToolCallingRequest(
+                req: req, requestBody: requestBody, userPrompt: userPrompt,
+                systemInstructions: systemInstructions)
+        }
 
         // Handle streaming vs non-streaming
         if requestBody.stream == true {
@@ -87,6 +104,154 @@ public struct AnthropicController: RouteCollection, Sendable {
         let response = Response(status: .ok)
         try response.content.encode(responseBody)
         return response
+    }
+
+    /// Handle tool calling request
+    private func handleToolCallingRequest(
+        req: Request, requestBody: MessageRequest, userPrompt: String, systemInstructions: String?
+    ) async throws -> Response {
+        // Convert Anthropic tools to ToolDefinitions
+        let toolDefinitions: [ToolDefinition] = (requestBody.tools ?? []).map {
+            messageTranslator.convertAnthropicToolToDefinition($0)
+        }
+
+        // Create empty tool registry (client executes tools)
+        let toolRegistry = ToolRegistry()
+
+        // Call LLM with tools (single turn - Anthropic pattern)
+        let (content, toolCalls): (String?, [ToolCall]?)
+        do {
+            (content, toolCalls) = try await llmProvider.respondWithTools(
+                to: userPrompt, tools: toolDefinitions, toolExecutors: toolRegistry,
+                systemInstructions: systemInstructions)
+        } catch let error as LLMError {
+            req.logger.error(
+                "Tool calling error",
+                metadata: [
+                    "error": .string("\(error)"), "prompt_length": .string("\(userPrompt.count)"),
+                    "tools_count": .string("\(toolDefinitions.count)"),
+                ])
+            throw mapLLMError(error)
+        }
+
+        // Build content blocks for response
+        var contentBlocks: [ResponseContentBlock] = []
+
+        // Add text block if present
+        if let content = content, !content.isEmpty {
+            contentBlocks.append(.text(ResponseTextBlock(text: content)))
+        }
+
+        // Add tool use blocks if model called tools
+        if let toolCalls = toolCalls, !toolCalls.isEmpty {
+            for toolCall in toolCalls {
+                // Parse tool arguments JSON to SchemaValue dictionary
+                var inputDict: [String: SchemaValue] = [:]
+                if let argumentsData = toolCall.arguments.data(using: .utf8),
+                    let jsonObject = try? JSONSerialization.jsonObject(with: argumentsData)
+                        as? [String: Any]
+                {
+                    inputDict = convertJSONToSchemaValue(jsonObject)
+                }
+
+                contentBlocks.append(
+                    .toolUse(
+                        ResponseToolUseBlock(id: toolCall.id, name: toolCall.name, input: inputDict)
+                    ))
+            }
+
+            // Build response with tool_use stop reason
+            let responseBody = MessageResponse(
+                id: "msg_\(UUID().uuidString)", model: ServerConfig.afmModelIdentifier,
+                content: contentBlocks, stopReason: .toolUse,
+                usage: Usage(
+                    inputTokens: estimateTokens(userPrompt + (systemInstructions ?? "")),
+                    outputTokens: estimateTokens(content ?? "")))
+
+            let response = Response(status: .ok)
+            try response.content.encode(responseBody)
+            return response
+        }
+
+        // No tool calls - return final content
+        let responseBody = MessageResponse(
+            id: "msg_\(UUID().uuidString)", model: ServerConfig.afmModelIdentifier,
+            content: contentBlocks, stopReason: .endTurn,
+            usage: Usage(
+                inputTokens: estimateTokens(userPrompt + (systemInstructions ?? "")),
+                outputTokens: estimateTokens(content ?? "")))
+
+        let response = Response(status: .ok)
+        try response.content.encode(responseBody)
+        return response
+    }
+
+    /// Handle tool result submission
+    private func handleToolResultSubmission(
+        req: Request, requestBody: MessageRequest, systemInstructions: String?
+    ) async throws -> Response {
+        // Build conversation history from all messages including tool calls and results
+        let conversationHistory = messageTranslator.buildToolResultHistory(
+            from: requestBody.messages)
+
+        // Generate final response based on tool results
+        let generatedContent: String
+        do {
+            generatedContent = try await llmProvider.respond(
+                to: conversationHistory, systemInstructions: systemInstructions)
+        } catch let error as LLMError {
+            req.logger.error(
+                "Tool result processing error",
+                metadata: [
+                    "error": .string("\(error)"),
+                    "history_length": .string("\(conversationHistory.count)"),
+                    "messages_count": .string("\(requestBody.messages.count)"),
+                ])
+            throw mapLLMError(error)
+        }
+
+        // Build response with text content
+        let responseBody = MessageResponse(
+            id: "msg_\(UUID().uuidString)", model: ServerConfig.afmModelIdentifier,
+            content: [.text(ResponseTextBlock(text: generatedContent))], stopReason: .endTurn,
+            usage: Usage(
+                inputTokens: estimateTokens(conversationHistory + (systemInstructions ?? "")),
+                outputTokens: estimateTokens(generatedContent)))
+
+        let response = Response(status: .ok)
+        try response.content.encode(responseBody)
+        return response
+    }
+
+    /// Convert JSON object to SchemaValue dictionary
+    private func convertJSONToSchemaValue(_ json: [String: Any]) -> [String: SchemaValue] {
+        var result: [String: SchemaValue] = [:]
+
+        for (key, value) in json {
+            switch value {
+            case let stringValue as String: result[key] = .string(stringValue)
+            case let numberValue as Double: result[key] = .number(numberValue)
+            case let numberValue as Int: result[key] = .number(Double(numberValue))
+            case let boolValue as Bool: result[key] = .bool(boolValue)
+            case let arrayValue as [Any]:
+                let schemaArray = arrayValue.compactMap { item -> SchemaValue? in
+                    if let str = item as? String { return .string(str) }
+                    if let num = item as? Double { return .number(num) }
+                    if let num = item as? Int { return .number(Double(num)) }
+                    if let bool = item as? Bool { return .bool(bool) }
+                    if let dict = item as? [String: Any] {
+                        return .object(convertJSONToSchemaValue(dict))
+                    }
+                    return nil
+                }
+                result[key] = .array(schemaArray)
+            case let dictValue as [String: Any]:
+                result[key] = .object(convertJSONToSchemaValue(dictValue))
+            default: result[key] = .null
+            }
+        }
+
+        return result
     }
 
     /// Handle streaming message creation with SSE

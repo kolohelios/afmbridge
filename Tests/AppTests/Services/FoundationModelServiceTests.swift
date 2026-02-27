@@ -147,18 +147,21 @@ final class FoundationModelServiceTests: XCTestCase {
 final class MockLLMProvider: LLMProvider, @unchecked Sendable {
     private let response: String?
     private let error: Error?
+    private let toolCalls: [ToolCall]?
 
     var lastUserPrompt: String?
     var lastSystemInstructions: String?
 
-    init(response: String) {
+    init(response: String, toolCalls: [ToolCall]? = nil) {
         self.response = response
         self.error = nil
+        self.toolCalls = toolCalls
     }
 
     init(error: Error) {
         self.response = nil
         self.error = error
+        self.toolCalls = nil
     }
 
     func respond(to userPrompt: String, systemInstructions: String?) async throws -> String {
@@ -218,7 +221,7 @@ final class MockLLMProvider: LLMProvider, @unchecked Sendable {
 
         if let error = error { throw error }
 
-        // Mock implementation: just return content, no tool calls
-        return (content: response ?? "Default response", toolCalls: nil)
+        // Mock implementation: return configured tool calls if present
+        return (content: response ?? "Default response", toolCalls: toolCalls)
     }
 }

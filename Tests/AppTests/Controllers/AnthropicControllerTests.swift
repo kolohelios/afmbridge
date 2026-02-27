@@ -215,4 +215,180 @@ final class AnthropicControllerTests: XCTestCase {
 
         XCTAssertEqual(events.count, 6)
     }
+
+    // MARK: - Tool Calling Tests
+
+    func testToolCalling_requestWithTools() {
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [Message(role: "user", text: "What's the weather in Boston?")],
+            tools: [
+                AnthropicTool(
+                    name: "get_weather", description: "Get current weather",
+                    inputSchema: JSONSchema(
+                        type: "object", properties: ["location": ["type": .string("string")]],
+                        required: ["location"]))
+            ])
+
+        XCTAssertNotNil(request.tools)
+        XCTAssertEqual(request.tools?.count, 1)
+        XCTAssertEqual(request.tools?[0].name, "get_weather")
+        XCTAssertEqual(request.tools?[0].description, "Get current weather")
+    }
+
+    func testToolCalling_requestWithToolChoice() {
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [Message(role: "user", text: "Check weather")],
+            tools: [
+                AnthropicTool(
+                    name: "get_weather", description: "Get weather",
+                    inputSchema: JSONSchema(type: "object"))
+            ], toolChoice: .tool("get_weather"))
+
+        XCTAssertNotNil(request.toolChoice)
+        if case .tool(let toolName) = request.toolChoice {
+            XCTAssertEqual(toolName, "get_weather")
+        } else {
+            XCTFail("Expected .tool tool choice")
+        }
+    }
+
+    func testToolCalling_responseWithToolUse() {
+        // Test response structure with tool_use content blocks
+        let response = MessageResponse(
+            id: "msg_123", model: "claude-opus-4-5-20251101",
+            content: [
+                .text(ResponseTextBlock(text: "Let me check the weather")),
+                .toolUse(
+                    ResponseToolUseBlock(
+                        id: "toolu_123", name: "get_weather", input: ["location": .string("Boston")]
+                    )),
+            ], stopReason: .toolUse, usage: Usage(inputTokens: 20, outputTokens: 15))
+
+        XCTAssertEqual(response.stopReason, .toolUse)
+        XCTAssertEqual(response.content.count, 2)
+
+        // Verify first block is text
+        if case .text(let textBlock) = response.content[0] {
+            XCTAssertEqual(textBlock.text, "Let me check the weather")
+        } else {
+            XCTFail("Expected text block")
+        }
+
+        // Verify second block is tool_use
+        if case .toolUse(let toolUseBlock) = response.content[1] {
+            XCTAssertEqual(toolUseBlock.id, "toolu_123")
+            XCTAssertEqual(toolUseBlock.name, "get_weather")
+        } else {
+            XCTFail("Expected tool_use block")
+        }
+    }
+
+    func testToolCalling_multipleToolUseBlocks() {
+        let response = MessageResponse(
+            id: "msg_123", model: "claude-opus-4-5-20251101",
+            content: [
+                .toolUse(
+                    ResponseToolUseBlock(
+                        id: "toolu_1", name: "get_weather", input: ["location": .string("NYC")])),
+                .toolUse(
+                    ResponseToolUseBlock(
+                        id: "toolu_2", name: "get_temperature", input: ["unit": .string("celsius")])
+                ),
+            ], stopReason: .toolUse, usage: Usage(inputTokens: 20, outputTokens: 20))
+
+        XCTAssertEqual(response.content.count, 2)
+        XCTAssertEqual(response.stopReason, .toolUse)
+
+        // Verify both blocks are tool_use
+        if case .toolUse(let toolUse1) = response.content[0],
+            case .toolUse(let toolUse2) = response.content[1]
+        {
+            XCTAssertEqual(toolUse1.id, "toolu_1")
+            XCTAssertEqual(toolUse2.id, "toolu_2")
+        } else {
+            XCTFail("Expected two tool_use blocks")
+        }
+    }
+
+    func testToolCalling_requestWithToolResults() {
+        // Test conversation with tool results
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [
+                Message(role: "user", text: "What's the weather in Boston?"),
+                Message(
+                    role: "assistant",
+                    content: .blocks([
+                        .text(TextBlock(text: "Let me check")),
+                        .toolUse(
+                            ToolUseBlock(
+                                id: "toolu_123", name: "get_weather",
+                                input: ["location": .string("Boston")])),
+                    ])),
+                Message(
+                    role: "user",
+                    content: .blocks([
+                        .toolResult(
+                            ToolResultBlock(toolUseId: "toolu_123", content: "72°F and sunny"))
+                    ])),
+            ])
+
+        XCTAssertEqual(request.messages.count, 3)
+
+        // Verify tool result block
+        if case .blocks(let blocks) = request.messages[2].content {
+            if case .toolResult(let toolResult) = blocks[0] {
+                XCTAssertEqual(toolResult.toolUseId, "toolu_123")
+                XCTAssertEqual(toolResult.content, "72°F and sunny")
+            } else {
+                XCTFail("Expected tool_result block")
+            }
+        } else {
+            XCTFail("Expected blocks content")
+        }
+    }
+
+    func testToolCalling_emptyToolsArray() {
+        // Empty tools array should be treated as no tools
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [Message(role: "user", text: "Hello")], tools: [])
+
+        XCTAssertNotNil(request.tools)
+        XCTAssertEqual(request.tools?.count, 0)
+    }
+
+    func testToolCalling_toolChoiceAuto() {
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [Message(role: "user", text: "Hello")],
+            tools: [
+                AnthropicTool(
+                    name: "test_tool", description: "Test", inputSchema: JSONSchema(type: "object"))
+            ], toolChoice: .auto)
+
+        if case .auto = request.toolChoice {
+            // Success
+        } else {
+            XCTFail("Expected .auto tool choice")
+        }
+    }
+
+    func testToolCalling_toolChoiceAny() {
+        let request = MessageRequest(
+            model: "claude-opus-4-5-20251101", maxTokens: 1024,
+            messages: [Message(role: "user", text: "Hello")],
+            tools: [
+                AnthropicTool(
+                    name: "test_tool", description: "Test", inputSchema: JSONSchema(type: "object"))
+            ], toolChoice: .any)
+
+        if case .any = request.toolChoice {
+            // Success
+        } else {
+            XCTFail("Expected .any tool choice")
+        }
+    }
 }
