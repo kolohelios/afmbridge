@@ -29,12 +29,14 @@ jobs:
           authToken: ${{ secrets.CACHIX_AUTH_TOKEN }}
 
       - name: Build binary
-        run: nix build
+        run: |
+          # Use system Swift (macOS comes with Swift/Xcode)
+          swift build -c release
 
       - name: Package binary
         run: |
           mkdir -p artifacts
-          cp result/bin/AFMBridge artifacts/
+          cp .build/release/AFMBridge artifacts/
           cd artifacts
           tar -czf afmbridge-macos-${{ github.ref_name }}.tar.gz AFMBridge
           shasum -a 256 afmbridge-macos-${{ github.ref_name }}.tar.gz > checksums.txt
@@ -71,11 +73,11 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Build Docker image
-        run: nix build .#docker
-
-      - name: Load and tag image
         run: |
-          docker load < result
+          docker build -t afmbridge:latest .
+
+      - name: Tag image
+        run: |
           docker tag afmbridge:latest ghcr.io/${{ github.repository }}:${{ github.ref_name }}
           docker tag afmbridge:latest ghcr.io/${{ github.repository }}:latest
 
