@@ -1,20 +1,22 @@
 # Multi-stage Dockerfile for AFMBridge
-# Stage 1: Build with Nix
+# Stage 1: Build with Swift
 # Stage 2: Runtime image
 
 # Stage 1: Builder
-FROM nixos/nix:latest AS builder
+FROM swift:6.0.3-noble AS builder
 
-# Enable flakes
-RUN mkdir -p ~/.config/nix && \
-    echo "experimental-features = nix-command flakes" >> ~/.config/nix/nix.conf
+# Install build dependencies
+RUN apt-get update && apt-get install -y \
+    libsqlite3-dev \
+    libssl-dev \
+    && rm -rf /var/lib/apt/lists/*
 
 # Copy source
 WORKDIR /build
 COPY . .
 
-# Build with Nix
-RUN nix build --no-sandbox
+# Build with Swift
+RUN swift build -c release --static-swift-stdlib
 
 # Stage 2: Runtime
 FROM debian:bookworm-slim
@@ -26,7 +28,7 @@ RUN apt-get update && apt-get install -y \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy binary from builder
-COPY --from=builder /build/result/bin/AFMBridge /usr/local/bin/AFMBridge
+COPY --from=builder /build/.build/release/AFMBridge /usr/local/bin/AFMBridge
 
 # Set environment variables
 ENV HOST=0.0.0.0
