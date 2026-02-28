@@ -12,7 +12,7 @@ AFMBridge is a standalone Swift/Vapor REST API server that wraps Apple's Foundat
 (macOS 26.0+) with industry-standard LLM APIs, enabling seamless integration with existing OpenAI
 and Anthropic client libraries.
 
-**Status:** ✅ Phase 4 - Anthropic API Support (Complete)
+**Status:** ✅ Phase 5 - Production Ready (Complete)
 
 ## Features
 
@@ -79,7 +79,7 @@ Download the latest signed and notarized macOS binary from
 
 ```bash
 # Download and extract (replace VERSION with latest from releases page)
-VERSION=v0.1.0-beta.7  # Check releases page for latest version
+VERSION=v1.0.0  # Check releases page for latest version
 curl -L -o afmbridge.tar.gz \
   https://github.com/kolohelios/afmbridge/releases/download/${VERSION}/afmbridge-macos-${VERSION}.tar.gz
 tar -xzf afmbridge.tar.gz
@@ -530,12 +530,12 @@ afmbridge/
   - [x] Integration tests for Anthropic API
   - [x] Error middleware with formatted responses
   - [x] Anthropic-compatible tool calling
-- [ ] **Phase 5:** Production Ready (In Progress)
+- [x] **Phase 5:** Production Ready (Complete)
   - [x] API key authentication (Bearer token)
   - [x] Error middleware with formatted error responses
   - [x] Request logging and metrics (MetricsMiddleware)
   - [x] 80% code coverage (239 tests passing, 81.61% coverage)
-  - [ ] Production documentation and deployment guide
+  - [x] Production documentation and deployment guide
 
 See [PLAN.md](PLAN.md) for detailed phase breakdown.
 
