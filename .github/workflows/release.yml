@@ -21,6 +21,73 @@ jobs:
           # Use system Swift (macOS comes with Swift/Xcode)
           swift build -c release
 
+      - name: Import signing certificate
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+          KEYCHAIN_PASSWORD: ${{ secrets.KEYCHAIN_PASSWORD }}
+        run: |
+          # Create temporary keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+          security set-keychain-settings -lut 21600 $KEYCHAIN_PATH
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Import certificate
+          echo "$CERTIFICATE_BASE64" | base64 --decode > certificate.p12
+          security import certificate.p12 -k $KEYCHAIN_PATH -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security set-key-partition-list -S apple-tool:,apple:,codesign: -s -k "$KEYCHAIN_PASSWORD" $KEYCHAIN_PATH
+
+          # Add to search list
+          security list-keychain -d user -s $KEYCHAIN_PATH
+
+      - name: Sign binary
+        run: |
+          # Find the Developer ID Application identity from the keychain
+          KEYCHAIN_PATH=$RUNNER_TEMP/app-signing.keychain-db
+          IDENTITY=$(security find-identity -v -p codesigning $KEYCHAIN_PATH | grep "Developer ID Application" | head -1 | grep -o '"[^"]*"' | tr -d '"')
+          echo "Using identity: $IDENTITY"
+
+          if [ -z "$IDENTITY" ]; then
+            echo "Error: No Developer ID Application identity found"
+            security find-identity -v $KEYCHAIN_PATH
+            exit 1
+          fi
+
+          codesign --sign "$IDENTITY" \
+            --timestamp \
+            --options runtime \
+            --entitlements entitlements.plist \
+            --keychain $KEYCHAIN_PATH \
+            .build/release/AFMBridge
+
+      - name: Verify signature
+        run: codesign --verify --verbose .build/release/AFMBridge
+
+      - name: Notarize binary
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          APPLE_ID_PASSWORD: ${{ secrets.APPLE_ID_PASSWORD }}
+        run: |
+          # Create a zip for notarization
+          ditto -c -k --keepParent .build/release/AFMBridge AFMBridge.zip
+
+          # Submit for notarization
+          echo "Submitting for notarization..."
+          xcrun notarytool submit AFMBridge.zip \
+            --apple-id "$APPLE_ID" \
+            --team-id "$APPLE_TEAM_ID" \
+            --password "$APPLE_ID_PASSWORD" \
+            --wait
+
+          # Note: Stapling is not possible for raw binaries, only .app bundles, .dmg, or .pkg
+          # The notarization ticket is stored on Apple's servers and will be verified online
+
+          # Verify with Gatekeeper
+          echo "Verifying with Gatekeeper..."
+          spctl --assess --type execute --verbose .build/release/AFMBridge || echo "Note: spctl may fail in CI but binary is notarized"
+
       - name: Package binary
         run: |
           mkdir -p artifacts
@@ -35,36 +102,9 @@ jobs:
           name: macos-binary
           path: artifacts/
 
-  build-docker:
-    name: Build and Push Docker Image
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
-        with:
-          registry: ghcr.io
-          username: ${{ github.actor }}
-          password: ${{ secrets.GITHUB_TOKEN }}
-
-      - name: Build Docker image
-        run: |
-          docker build -t afmbridge:latest .
-
-      - name: Tag image
-        run: |
-          docker tag afmbridge:latest ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          docker tag afmbridge:latest ghcr.io/${{ github.repository }}:latest
-
-      - name: Push Docker image
-        run: |
-          docker push ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-          docker push ghcr.io/${{ github.repository }}:latest
-
   create-release:
     name: Create GitHub Release
-    needs: [build-binary, build-docker]
+    needs: [build-binary]
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
@@ -88,8 +128,6 @@ jobs:
 
             ## Installation
 
-            ### macOS Binary
-
             ```bash
             curl -L -o afmbridge.tar.gz \
               https://github.com/${{ github.repository }}/releases/download/${{ github.ref_name }}/afmbridge-macos-${{ github.ref_name }}.tar.gz
@@ -97,12 +135,7 @@ jobs:
             ./AFMBridge
             ```
 
-            ### Docker
-
-            ```bash
-            docker pull ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            docker run -p 8080:8080 ghcr.io/${{ github.repository }}:${{ github.ref_name }}
-            ```
+            **Note:** AFMBridge requires macOS 26.0+ for the FoundationModels framework.
 
             ## Checksums
 

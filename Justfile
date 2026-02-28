@@ -64,22 +64,6 @@ run-dev:
 validate: format lint test
     @echo "✅ All validation checks passed!"
 
-# Build Docker image
-docker-build:
-    @echo "🐳 Building Docker image with Nix..."
-    nix build .#docker
-    @echo "🐳 Loading image into Docker..."
-    docker load < result
-    @echo "✅ Docker image built"
-
-# Run Docker container
-docker-run:
-    @echo "🐳 Running Docker container..."
-    docker run --rm -p 8080:8080 \
-        -e HOST=0.0.0.0 \
-        -e PORT=8080 \
-        afmbridge:latest
-
 # Clean build artifacts
 clean:
     @echo "🧹 Cleaning build artifacts..."
