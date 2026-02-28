@@ -50,12 +50,13 @@ and Anthropic client libraries.
 - ✅ Content blocks support
 - ✅ Anthropic-compatible tool calling
 
-### Phase 5 (In Progress)
+### Phase 5 (Complete)
 
 - ✅ API key authentication (Bearer token)
 - ✅ Error middleware with formatted error responses
 - ✅ Request logging and metrics (MetricsMiddleware)
 - ✅ 80% code coverage (239 tests passing, 81.61% coverage)
+- ✅ Production documentation and deployment guide
 
 ### Infrastructure
 
@@ -67,7 +68,7 @@ and Anthropic client libraries.
 
 ### Planned
 
-- 🚧 Production documentation and deployment guide (Phase 5)
+- No additional features planned - project is feature-complete!
 
 ## Installation
 
@@ -78,7 +79,7 @@ Download the latest signed and notarized macOS binary from
 
 ```bash
 # Download and extract (replace VERSION with latest from releases page)
-VERSION=v0.1.0-beta.6  # Check releases page for latest version
+VERSION=v0.1.0-beta.7  # Check releases page for latest version
 curl -L -o afmbridge.tar.gz \
   https://github.com/kolohelios/afmbridge/releases/download/${VERSION}/afmbridge-macos-${VERSION}.tar.gz
 tar -xzf afmbridge.tar.gz
@@ -93,6 +94,10 @@ will trust it without security warnings.
 ### Build from Source
 
 See [Quick Start](#quick-start) below for building with Nix.
+
+### Deployment
+
+For production deployment, code signing setup, and release process, see [DEPLOYMENT.md](DEPLOYMENT.md).
 
 ## Requirements
 

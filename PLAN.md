@@ -205,9 +205,11 @@ just clean           # Clean build artifacts
 
 ## Implementation Phases
 
-### Phase 0: Project Foundation
+### Phase 0: Project Foundation ✅
 
 **Goal:** Set up project infrastructure, build system, and development environment
+
+**Status:** ✅ Complete
 
 #### 0.1 Repository and Plan
 
@@ -357,9 +359,11 @@ just clean           # Clean build artifacts
 
 ---
 
-### Phase 1: MVP - Non-Streaming OpenAI API
+### Phase 1: MVP - Non-Streaming OpenAI API ✅
 
 **Goal:** Working server with basic OpenAI chat completions (non-streaming)
+
+**Status:** ✅ Complete
 
 **Commits:** 16-35 (20 commits)
 
@@ -515,9 +519,11 @@ just clean           # Clean build artifacts
 
 ---
 
-### Phase 2: Streaming Support
+### Phase 2: Streaming Support ✅
 
 **Goal:** Add real SSE streaming using FoundationModels AsyncSequence API
+
+**Status:** ✅ Complete
 
 **Commits:** 36-43 (8 commits)
 
@@ -610,9 +616,11 @@ just clean           # Clean build artifacts
 
 ---
 
-### Phase 3: Tool Calling Support
+### Phase 3: Tool Calling Support ✅
 
 **Goal:** Implement dynamic tool calling with OpenAI-compatible API using AFM's native Tool protocol
+
+**Status:** ✅ Complete
 
 **Commits:** 44-60 (17 commits)
 
@@ -824,9 +832,11 @@ Apple Foundation Models supports native tool calling through the `Tool` protocol
 
 ---
 
-### Phase 4: Anthropic Support
+### Phase 4: Anthropic Support ✅
 
 **Goal:** Add Anthropic Messages API compatibility
+
+**Status:** ✅ Complete
 
 **Commits:** 61-75 (15 commits)
 
@@ -973,9 +983,11 @@ Apple Foundation Models supports native tool calling through the `Tool` protocol
 
 ---
 
-### Phase 5: Production Hardening
+### Phase 5: Production Hardening ✅
 
 **Goal:** Production-ready features
+
+**Status:** ✅ Complete
 
 **Commits:** 76-92 (17 commits)
 
