@@ -48,15 +48,13 @@ afmbridge/
 ├── flake.lock                           # Locked Nix dependencies
 ├── .envrc                               # direnv for automatic env loading
 ├── Justfile                             # Task runner (format, lint, test, build, etc.)
-├── Dockerfile                           # Multi-stage Docker build
-├── .dockerignore                        # Docker ignore patterns
 ├── .swiftlint.yml                       # SwiftLint configuration
 ├── .swift-format                        # swift-format configuration
 ├── .markdownlint.json                   # Markdown linting for docs
 ├── .github/
 │   └── workflows/
 │       ├── ci.yml                       # GitHub Actions CI (lint, test, build)
-│       ├── release.yml                  # Release workflow (Docker + binary)
+│       ├── release.yml                  # Release workflow (signed macOS binary)
 │       └── pr-stack.yml                 # PR stack validation
 ├── LICENSE                              # MIT License
 ├── .jj/                                 # Jujutsu VCS directory
@@ -192,10 +190,8 @@ just lint            # Run SwiftLint and markdownlint
 just test            # Run all tests with coverage
 just build           # Build the project
 just validate        # Run format + lint + test + build
-just docker-build    # Build Docker image
-just docker-run      # Run Docker container
 just clean           # Clean build artifacts
-```text
+```
 
 ### Development Workflow with jj
 
@@ -205,7 +201,7 @@ just clean           # Clean build artifacts
 4. Create new change for next feature: `jj new -m "type(scope): next feature"`
 5. Before PR: `jj rebase -d main`
 6. Push PR stack: `jj git push --all`
-7. CI validates: lint, format, tests, build, Docker
+7. CI validates: lint, format, tests, build
 
 ## Implementation Phases
 
@@ -239,7 +235,7 @@ just clean           # Clean build artifacts
 - Create `flake.nix`:
   - Swift 6.0+ toolchain
   - Vapor dependencies
-  - Build outputs: binary and Docker image
+  - Build outputs: macOS binary
   - Development shell with: swift, swiftlint, swift-format, just
 - Create `flake.lock`
 - Test: `nix flake check` passes
@@ -260,20 +256,8 @@ just clean           # Clean build artifacts
   - `test`: Run swift test with code coverage
   - `build`: Run swift build
   - `validate`: Run format + lint + test + build
-  - `docker-build`: Build Docker image
-  - `docker-run`: Run Docker container
   - `clean`: Clean build artifacts
 - Test: `just --list` shows all tasks
-
-**Commit 6:** `build(docker): add multi-stage Dockerfile`
-
-- Create `Dockerfile`:
-  - Stage 1: Build binary with Nix
-  - Stage 2: Runtime image with minimal dependencies
-  - EXPOSE 8080
-  - ENTRYPOINT for server binary
-- Create `.dockerignore`
-- Test: `docker build -t afmbridge .` succeeds
 
 #### 0.4 Code Quality
 
@@ -325,17 +309,15 @@ just clean           # Clean build artifacts
   - Setup Nix with cachix
   - Run `just validate` (format + lint + test + build)
   - Check code coverage >= 80%
-  - Build Docker image
-  - Upload artifacts (binary, Docker)
+  - Upload test coverage artifacts
 - Test: Workflow syntax is valid
 
 **Commit 12:** `ci(github): add release workflow`
 
 - Create `.github/workflows/release.yml`:
   - Trigger on tags (v*.*.*)
-  - Build binary for macOS
-  - Build and push Docker image to GHCR
-  - Create GitHub release with artifacts
+  - Build code-signed and notarized macOS binary
+  - Create GitHub release with binary artifacts
 - Test: Workflow syntax is valid
 
 **Commit 13:** `ci(github): add PR stack validation`
@@ -638,12 +620,19 @@ just clean           # Clean build artifacts
 
 Apple Foundation Models supports native tool calling through the `Tool` protocol:
 
-- [Expanding generation with tool calling](https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling) - Official tool calling guide
-- [Tool Protocol Documentation](https://developer.apple.com/documentation/foundationmodels/tool) - API reference
-- [WWDC 2025: Meet the Foundation Models framework](https://developer.apple.com/videos/play/wwdc2025/286/) - Introduction to AFM
-- [WWDC 2025: Deep dive into Foundation Models](https://developer.apple.com/videos/play/wwdc2025/301/) - Advanced tool calling patterns
-- [Code-along: Bring on-device AI to your app](https://developer.apple.com/videos/play/wwdc2025/259/) - Practical examples
-- [Foundation Models Code-Along Instructions](https://developer.apple.com/events/resources/code-along-205/) - Step-by-step guide
+- [Expanding generation with tool calling][tool-calling-guide] - Official tool calling guide
+- [Tool Protocol Documentation][tool-protocol] - API reference
+- [WWDC 2025: Meet the Foundation Models framework][wwdc-286] - Introduction to AFM
+- [WWDC 2025: Deep dive into Foundation Models][wwdc-301] - Advanced tool calling patterns
+- [Code-along: Bring on-device AI to your app][wwdc-259] - Practical examples
+- [Foundation Models Code-Along Instructions][code-along] - Step-by-step guide
+
+[tool-calling-guide]: https://developer.apple.com/documentation/foundationmodels/expanding-generation-with-tool-calling
+[tool-protocol]: https://developer.apple.com/documentation/foundationmodels/tool
+[wwdc-286]: https://developer.apple.com/videos/play/wwdc2025/286/
+[wwdc-301]: https://developer.apple.com/videos/play/wwdc2025/301/
+[wwdc-259]: https://developer.apple.com/videos/play/wwdc2025/259/
+[code-along]: https://developer.apple.com/events/resources/code-along-205/
 
 **Architecture:** Dynamic Tool Bridging
 
@@ -1147,7 +1136,7 @@ Apple Foundation Models supports native tool calling through the `Tool` protocol
 - Total commits in phase: 17 (commits 76-92)
 - 80%+ code coverage
 - All quality checks passing (`just validate`)
-- Docker and binary artifacts ready
+- Code-signed and notarized macOS binary ready
 - Fully documented
 - Ready for open-source release
 
@@ -1177,6 +1166,7 @@ Apple Foundation Models supports native tool calling through the `Tool` protocol
 ### 4. Protocol-Based Architecture
 
 **Rationale:** Enables testing without FoundationModels, future backend swapping
+
 ```swift
 protocol LLMProvider {
     func respond(to request: ChatCompletionRequest) async throws -> String
@@ -1237,20 +1227,7 @@ nix build
 
 # Run binary
 ./result/bin/AFMBridge
-```text
-
-### Docker
-
-```bash
-# Build Docker image
-just docker-build
-
-# Run Docker container
-just docker-run
-
-# Or with docker directly
-docker run -p 8080:8080 -e HOST=0.0.0.0 afmbridge
-```text
+```
 
 ### Environment Variables
 
@@ -1272,7 +1249,7 @@ This plan provides a complete roadmap for building **AFMBridge** (Apple Foundati
 - ✅ Anthropic Messages API compatibility
 - ✅ Server-Sent Events (SSE) streaming
 - ✅ Nix build system with reproducible builds
-- ✅ Docker and binary artifacts
+- ✅ Code-signed and notarized macOS binary releases
 - ✅ Just task runner for development
 - ✅ Jujutsu (jj) for version control with PR stacks
 - ✅ Atomic commits following Conventional Commits (70 char max)
@@ -1294,7 +1271,7 @@ This plan provides a complete roadmap for building **AFMBridge** (Apple Foundati
 **Build System:** Nix flakes
 **Task Runner:** just (Justfile)
 **VCS:** Jujutsu (jj) with PR stacks
-**Artifacts:** Docker image + macOS binary
+**Artifacts:** Code-signed and notarized macOS binary
 
 ## Success Criteria
 

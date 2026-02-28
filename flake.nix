@@ -37,8 +37,8 @@
             # Python SDK packages for integration tests
             pythonWithPackages
 
-            # Note: Removed docker, git, direnv - these pull in clang/SDK
-            # Install via Homebrew instead: brew install docker git direnv
+            # Note: Removed git, direnv - these pull in clang/SDK
+            # Install via Homebrew instead: brew install git direnv
           ];
 
           shellHook = ''
@@ -52,7 +52,7 @@
             # Ensure system tools come first
             export PATH="/usr/bin:/bin:/usr/sbin:/sbin:$PATH"
 
-            # Add Homebrew (for swift-format, swiftlint, docker, git, direnv)
+            # Add Homebrew (for swift-format, swiftlint, git, direnv)
             export PATH="/opt/homebrew/bin:/usr/local/bin:$PATH"
 
             # Set PYTHONPATH for SDK integration tests
@@ -70,7 +70,7 @@
             echo "  ✓ python3           SDK integration tests (openai, anthropic)"
             echo ""
             echo "Tools from Homebrew (install if missing):"
-            echo "  brew install swift-format swiftlint docker git direnv"
+            echo "  brew install swift-format swiftlint git direnv"
             echo ""
             echo "Swift (system toolchain):"
             swift --version 2>/dev/null || echo "  ⚠ Swift not found - install Xcode"

@@ -60,7 +60,6 @@ and Anthropic client libraries.
 ### Infrastructure
 
 - ✅ Reproducible builds with Nix flakes
-- ✅ Docker containerization
 - ✅ Structured logging
 - ✅ Automated CI/CD with GitHub Actions
 - ✅ Code-signed and notarized macOS releases
@@ -93,7 +92,7 @@ will trust it without security warnings.
 
 ### Build from Source
 
-See [Quick Start](#quick-start) below for building with Nix or Docker.
+See [Quick Start](#quick-start) below for building with Nix.
 
 ## Requirements
 
@@ -150,7 +149,7 @@ HOST=0.0.0.0 PORT=8080 just run
 
 **How it works:**
 
-- **Nix provides**: `just`, `markdownlint`, `docker`, Python SDKs (openai, anthropic)
+- **Nix provides**: `just`, `markdownlint`, Python SDKs (openai, anthropic)
 - **Homebrew provides**: `swift-format`, `swiftlint` (avoid SDK conflicts)
 - **System provides**: Swift 6.2.3 compiler (required for FoundationModels)
 
@@ -169,16 +168,6 @@ just build
 just run
 ```
 
-### Using Docker
-
-```bash
-# Build Docker image
-just docker-build
-
-# Run container
-just docker-run
-```
-
 ## Development
 
 ### Prerequisites
@@ -190,7 +179,7 @@ just docker-run
 - **Swift 6.0+** - Included with Xcode on macOS 26+
 - **direnv** - Automatic environment loading (optional)
 
-Nix provides consistent versions of `just`, `markdownlint`, `docker`, and Python SDKs.
+Nix provides consistent versions of `just`, `markdownlint`, and Python SDKs.
 Homebrew provides Swift-specific tools to avoid SDK conflicts.
 
 #### Without Nix
@@ -221,8 +210,6 @@ just lint            # Run SwiftLint and markdownlint
 just test            # Run all tests with coverage
 just build           # Build the project
 just validate        # Run all quality checks (format + lint + test + build)
-just docker-build    # Build Docker image
-just docker-run      # Run Docker container
 just clean           # Clean build artifacts
 ```
 
@@ -502,8 +489,7 @@ afmbridge/
 ├── .github/workflows/    # CI/CD pipelines
 ├── Package.swift         # Swift package manifest
 ├── flake.nix             # Nix flake for reproducible builds
-├── Justfile              # Development task runner
-└── Dockerfile            # Multi-stage Docker build
+└── Justfile              # Development task runner
 ```
 
 ## Roadmap

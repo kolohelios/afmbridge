@@ -149,8 +149,6 @@ just lint            # Run SwiftLint and markdownlint
 just test            # Run all tests with coverage
 just build           # Build the project
 just validate        # Run format + lint + test + build
-just docker-build    # Build Docker image
-just docker-run      # Run Docker container
 just clean           # Clean build artifacts
 ```
 
@@ -211,7 +209,6 @@ All PRs must pass CI checks (`.github/workflows/ci.yml`):
 - ✅ All tests pass
 - ✅ Code coverage >= 80%
 - ✅ Build succeeds
-- ✅ Docker image builds
 
 ### Commit Validation
 
@@ -227,9 +224,8 @@ PR stack workflow (`.github/workflows/pr-stack.yml`) validates:
 Releases are automated (`.github/workflows/release.yml`):
 
 - Triggered on version tags (`v*.*.*`)
-- Builds macOS binary with Nix
-- Builds and pushes Docker image to GHCR
-- Creates GitHub release with artifacts
+- Builds code-signed and notarized macOS binary
+- Creates GitHub release with binary artifacts
 
 ## Beads Task Workflow
 
